@@ -11,7 +11,7 @@ use futures::{
     Stream,
 };
 use pin_project::{pin_project, pinned_drop};
-use std::{marker::PhantomData, pin::Pin};
+use core::{marker::PhantomData, pin::Pin};
 
 /// `Eth` namespace, subscriptions
 #[derive(Debug, Clone)]

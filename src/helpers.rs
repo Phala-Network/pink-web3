@@ -1,18 +1,26 @@
 //! Web3 helpers.
 
-use crate::{error, rpc, Error};
+use crate::error;
+use crate::prelude::*;
+use core::{marker::PhantomData, pin::Pin};
 use futures::{
     task::{Context, Poll},
     Future,
 };
 use pin_project::pin_project;
-use serde::de::DeserializeOwned;
-use std::{marker::PhantomData, pin::Pin};
 
 /// Takes any type which is deserializable from rpc::Value and such a value and
 /// yields the deserialized value
-pub fn decode<T: serde::de::DeserializeOwned>(value: rpc::Value) -> error::Result<T> {
-    serde_json::from_value(value).map_err(Into::into)
+pub fn decode<T: serde::de::DeserializeOwned>(value: Vec<u8>) -> error::Result<T> {
+    serde_json_core::from_slice(&value).map(|x| x.0).map_err(Into::into)
+}
+
+/// Serialize a type. Panics if the type is returns error during serialization.
+pub fn serialize<T: erased_serde::Serialize>(t: &T) -> &dyn erased_serde::Serialize {
+    // serde_json_core::to_string::<_, 1024>(t)
+    //     .expect("Fail to serialize argument")
+    //     .to_string()
+    t as _
 }
 
 /// Calls decode on the result of the wrapped future.
@@ -37,76 +45,68 @@ impl<T, F> CallFuture<T, F> {
 impl<T, F> Future for CallFuture<T, F>
 where
     T: serde::de::DeserializeOwned,
-    F: Future<Output = error::Result<rpc::Value>>,
+    F: Future<Output = error::Result<Vec<u8>>>,
 {
     type Output = error::Result<T>;
 
     fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
         let this = self.project();
         let x = ready!(this.inner.poll(ctx));
-        Poll::Ready(x.and_then(decode))
+        Poll::Ready(x.and_then(|data| json_rpc::decode_response(&data)))
     }
 }
 
-/// Serialize a type. Panics if the type is returns error during serialization.
-pub fn serialize<T: serde::Serialize>(t: &T) -> rpc::Value {
-    serde_json::to_value(t).expect("Types never fail to serialize.")
-}
+pub(crate) mod json_rpc {
+    use crate::prelude::*;
+    use crate::types::DeString;
+    use crate::Error;
 
-/// Serializes a request to string. Panics if the type returns error during serialization.
-pub fn to_string<T: serde::Serialize>(request: &T) -> String {
-    serde_json::to_string(&request).expect("String serialization never fails.")
-}
+    use serde::{Deserialize, Serialize};
 
-/// Build a JSON-RPC request.
-pub fn build_request(id: usize, method: &str, params: Vec<rpc::Value>) -> rpc::Call {
-    rpc::Call::MethodCall(rpc::MethodCall {
-        jsonrpc: Some(rpc::Version::V2),
-        method: method.into(),
-        params: rpc::Params::Array(params),
-        id: rpc::Id::Num(id as u64),
-    })
-}
+    #[derive(Serialize)]
+    struct Request<'a, Params> {
+        id: u32,
+        method: &'a str,
+        params: Params,
+    }
 
-/// Parse bytes slice into JSON-RPC response.
-/// It looks for arbitrary_precision feature as a temporary workaround for https://github.com/tomusdrw/rust-web3/issues/460.
-pub fn to_response_from_slice(response: &[u8]) -> error::Result<rpc::Response> {
-    arbitrary_precision_deserialize_workaround(response).map_err(|e| Error::InvalidResponse(format!("{:?}", e)))
-}
+    #[derive(Deserialize)]
+    struct Response<T> {
+        result: Option<T>,
+        error: Option<RpcError>,
+    }
 
-/// Deserialize bytes into T.
-/// It looks for arbitrary_precision feature as a temporary workaround for https://github.com/tomusdrw/rust-web3/issues/460.
-pub fn arbitrary_precision_deserialize_workaround<T>(bytes: &[u8]) -> Result<T, serde_json::Error>
-where
-    T: DeserializeOwned,
-{
-    if cfg!(feature = "arbitrary_precision") {
-        serde_json::from_value(serde_json::from_slice(bytes)?)
-    } else {
-        serde_json::from_slice(bytes)
+    #[derive(Deserialize, Debug)]
+    pub struct RpcError {
+        pub code: i32,
+        pub message: DeString,
+    }
+
+    pub fn encode_request<Params: Serialize, const N: usize>(method: &str, params: Params) -> String {
+        serde_json_core::to_string::<_, N>(&Request { id: 0, method, params })
+            .expect("Failed to encode rpc request")
+            .to_string()
+    }
+
+    pub fn decode_response<'de, T: Deserialize<'de>>(response: &'de [u8]) -> Result<T, Error> {
+        let response: Response<T> = serde_json_core::from_slice(response)
+            .or(Err(Error::Decoder("Failed to decode the rpc response".into())))?
+            .0;
+        if let Some(result) = response.result {
+            return Ok(result);
+        }
+        if let Some(error) = response.error {
+            return Err(Error::Rpc(format!("{error:?}")));
+        }
+        if let Ok((result, _)) = serde_json_core::from_str("null") {
+            return Ok(result);
+        }
+        Err(Error::Decoder("Invalid rpc response".into()))
     }
 }
 
-/// Parse bytes slice into JSON-RPC notification.
-pub fn to_notification_from_slice(notification: &[u8]) -> error::Result<rpc::Notification> {
-    serde_json::from_slice(notification).map_err(|e| error::Error::InvalidResponse(format!("{:?}", e)))
-}
-
-/// Parse a Vec of `rpc::Output` into `Result`.
-pub fn to_results_from_outputs(outputs: Vec<rpc::Output>) -> error::Result<Vec<error::Result<rpc::Value>>> {
-    Ok(outputs.into_iter().map(to_result_from_output).collect())
-}
-
-/// Parse `rpc::Output` into `Result`.
-pub fn to_result_from_output(output: rpc::Output) -> error::Result<rpc::Value> {
-    match output {
-        rpc::Output::Success(success) => Ok(success.result),
-        rpc::Output::Failure(failure) => Err(error::Error::Rpc(failure.error)),
-    }
-}
-
-#[macro_use]
 #[cfg(test)]
+#[macro_use]
 pub mod tests {
     macro_rules! rpc_test {
     // With parameters
@@ -118,7 +118,8 @@ pub mod tests {
       fn $test_name() {
         // given
         let mut transport = $crate::transports::test::TestTransport::default();
-        transport.set_response($returned);
+        let returning = format!(r#"{{ "id": 0, "jsonrpc": "2.0", "result": {} }}"#, $returned);
+        transport.set_response(returning.as_bytes());
         let result = {
           let eth = $namespace::new(&transport);
 
@@ -127,7 +128,7 @@ pub mod tests {
         };
 
         // then
-        transport.assert_request($method, &$results.into_iter().map(Into::into).collect::<Vec<_>>());
+        transport.assert_request($method, &$results);
         transport.assert_no_more_requests();
         let result = futures::executor::block_on(result);
         assert_eq!(result, Ok($expected.into()));
@@ -153,7 +154,8 @@ pub mod tests {
       fn $test_name() {
         // given
         let mut transport = $crate::transports::test::TestTransport::default();
-        transport.set_response($returned);
+        let returning = format!(r#"{{ "id": 0, "jsonrpc": "2.0", "result": {} }}"#, $returned);
+        transport.set_response(returning.as_bytes());
         let result = {
           let eth = $namespace::new(&transport);
 
@@ -162,7 +164,7 @@ pub mod tests {
         };
 
         // then
-        transport.assert_request($method, &[]);
+        transport.assert_request($method, "[]");
         transport.assert_no_more_requests();
         let result = futures::executor::block_on(result);
         assert_eq!(result, Ok($expected.into()));

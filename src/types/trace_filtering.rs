@@ -1,4 +1,5 @@
 //! Types for the Parity Transaction-Trace Filtering API
+use crate::prelude::*;
 use crate::types::{Address, BlockNumber, Bytes, H160, H256, U256};
 use serde::{Deserialize, Serialize};
 

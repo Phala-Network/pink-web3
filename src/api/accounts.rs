@@ -1,27 +1,20 @@
 //! Partial implementation of the `Accounts` namespace.
 
-use crate::{api::Namespace, signing, types::H256, Transport};
+use crate::{signing, types::H256, Transport};
 
 /// `Accounts` namespace
 #[derive(Debug, Clone)]
 pub struct Accounts<T> {
+    #[allow(unused)]
     transport: T,
 }
 
-impl<T: Transport> Namespace<T> for Accounts<T> {
-    fn new(transport: T) -> Self
-    where
-        Self: Sized,
-    {
-        Accounts { transport }
-    }
-
-    fn transport(&self) -> &T {
-        &self.transport
-    }
-}
-
 impl<T: Transport> Accounts<T> {
+    /// New instance
+    pub fn new(transport: T) -> Self {
+        Self { transport }
+    }
+
     /// Hash a message according to EIP-191.
     ///
     /// The data is a UTF-8 encoded string and will enveloped as follows:
@@ -38,14 +31,12 @@ impl<T: Transport> Accounts<T> {
 #[cfg(feature = "signing")]
 mod accounts_signing {
     use super::*;
+    use crate::prelude::*;
     use crate::{
         api::Web3,
         error,
         signing::Signature,
-        types::{
-            AccessList, Address, Bytes, Recovery, RecoveryMessage, SignedData, SignedTransaction,
-            TransactionParameters, U256, U64,
-        },
+        types::{AccessList, Address, Bytes, SignedData, SignedTransaction, TransactionParameters, U256, U64},
     };
     use rlp::RlpStream;
     use std::convert::TryInto;
@@ -54,7 +45,7 @@ mod accounts_signing {
     const ACCESSLISTS_TX_ID: u64 = 1;
     const EIP1559_TX_ID: u64 = 2;
 
-    impl<T: Transport> Accounts<T> {
+    impl<T: Transport + Clone> Accounts<T> {
         /// Gets the parent `web3` namespace
         fn web3(&self) -> Web3<T> {
             Web3::new(self.transport.clone())
@@ -162,26 +153,6 @@ mod accounts_signing {
                 s: signature.s,
                 signature: signature_bytes,
             }
-        }
-
-        /// Recovers the Ethereum address which was used to sign the given data.
-        ///
-        /// Recovery signature data uses 'Electrum' notation, this means the `v`
-        /// value is expected to be either `27` or `28`.
-        pub fn recover<R>(&self, recovery: R) -> error::Result<Address>
-        where
-            R: Into<Recovery>,
-        {
-            let recovery = recovery.into();
-            let message_hash = match recovery.message {
-                RecoveryMessage::Data(ref message) => self.hash_message(message),
-                RecoveryMessage::Hash(hash) => hash,
-            };
-            let (signature, recovery_id) = recovery
-                .as_signature()
-                .ok_or(error::Error::Recovery(signing::RecoveryError::InvalidSignature))?;
-            let address = signing::recover(message_hash.as_bytes(), &signature, recovery_id)?;
-            Ok(address)
         }
     }
     /// A transaction used for RLP encoding, hashing and signing.
@@ -351,7 +322,7 @@ mod accounts_signing {
     }
 }
 
-#[cfg(all(test, not(target_arch = "wasm32")))]
+#[cfg(all(test, not(target_arch = "wasm32"), not(feature = "pink")))]
 mod tests {
     use super::*;
     use crate::{
@@ -395,10 +366,10 @@ mod tests {
 
         transport.assert_request(
             "eth_getTransactionCount",
-            &[json!(from).to_string(), json!("latest").to_string()],
+            &format!(r#"[{:?}, "latest"]"#, json!(from).to_string()),
         );
-        transport.assert_request("eth_gasPrice", &[]);
-        transport.assert_request("eth_chainId", &[]);
+        transport.assert_request("eth_gasPrice", "[]");
+        transport.assert_request("eth_chainId", "[]");
         transport.assert_no_more_requests();
 
         let expected = SignedTransaction {
@@ -517,7 +488,7 @@ mod tests {
         let signed = futures::executor::block_on(accounts.sign_transaction(
             TransactionParameters {
                 nonce: Some(0.into()),
-                gas_price: Some(1.into()),
+                gas_price: Some(1u128.into()),
                 chain_id: Some(42),
                 ..Default::default()
             },
@@ -537,15 +508,15 @@ mod tests {
         // https://web3js.readthedocs.io/en/v1.2.2/web3-eth-accounts.html#eth-accounts-signtransaction
 
         let tx = Transaction {
-            nonce: 0.into(),
-            gas: 2_000_000.into(),
+            nonce: 0u128.into(),
+            gas: 2_000_000u128.into(),
             gas_price: 234_567_897_654_321u64.into(),
             to: Some(hex!("F0109fC8DF283027b6285cc889F5aA624EaC1F55").into()),
-            value: 1_000_000_000.into(),
+            value: 1_000_000_000u128.into(),
             data: Vec::new(),
             transaction_type: None,
             access_list: vec![],
-            max_priority_fee_per_gas: 0.into(),
+            max_priority_fee_per_gas: 0u128.into(),
         };
         let skey = SecretKey::from_slice(&hex!(
             "4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318"

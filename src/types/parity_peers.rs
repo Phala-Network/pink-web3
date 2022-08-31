@@ -1,4 +1,5 @@
 //! Types for getting peer information
+use crate::prelude::*;
 use ethereum_types::U256;
 use serde::{Deserialize, Serialize};
 

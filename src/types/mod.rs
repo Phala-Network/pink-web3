@@ -19,6 +19,7 @@ mod transaction_request;
 mod txpool;
 mod uint;
 mod work;
+mod more_de;
 
 pub use self::{
     block::{Block, BlockHeader, BlockId, BlockNumber},
@@ -50,6 +51,7 @@ pub use self::{
     txpool::{TxpoolContentInfo, TxpoolInspectInfo, TxpoolStatus},
     uint::{H128, H160, H2048, H256, H512, H520, H64, U128, U256, U64},
     work::Work,
+    more_de::DeString,
 };
 
 /// Address

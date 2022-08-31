@@ -1,3 +1,4 @@
+use crate::prelude::*;
 use crate::types::{BlockNumber, Bytes, Index, H160, H256, U256, U64};
 use serde::{Deserialize, Serialize, Serializer};
 
@@ -156,16 +157,6 @@ impl FilterBuilder {
         self
     }
 
-    /// Sets the topics according to the given `ethabi` topic filter
-    pub fn topic_filter(self, topic_filter: ethabi::TopicFilter) -> Self {
-        self.topics(
-            topic_to_option(topic_filter.topic0),
-            topic_to_option(topic_filter.topic1),
-            topic_to_option(topic_filter.topic2),
-            topic_to_option(topic_filter.topic3),
-        )
-    }
-
     /// Limit the result
     pub fn limit(mut self, limit: usize) -> Self {
         self.filter.limit = Some(limit);
@@ -178,16 +169,7 @@ impl FilterBuilder {
     }
 }
 
-/// Converts a `Topic` to an equivalent `Option<Vec<T>>`, suitable for `FilterBuilder::topics`
-fn topic_to_option<T>(topic: ethabi::Topic<T>) -> Option<Vec<T>> {
-    match topic {
-        ethabi::Topic::Any => None,
-        ethabi::Topic::OneOf(v) => Some(v),
-        ethabi::Topic::This(t) => Some(vec![t]),
-    }
-}
-
-#[cfg(test)]
+#[cfg(all(test, not(feature = "pink")))]
 mod tests {
     use crate::types::{
         log::{FilterBuilder, Log},
