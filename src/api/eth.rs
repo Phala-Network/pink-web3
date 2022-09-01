@@ -17,8 +17,8 @@ use crate::{
 /// ```rust
 /// fn get_gas_price() {
 ///     use pink_web3::api::Eth;
-///     use pink_web3::transports::pink_http::PinkHttpTransport;
-///     let phttp = PinkHttpTransport::<1024>::new("http://localhost:3333");
+///     use pink_web3::transports::pink_http::PinkHttp;
+///     let phttp = PinkHttp::<1024>::new("http://localhost:3333");
 ///     let eth = Eth::new(phttp);
 ///     let result = eth.gas_price().resolve();
 ///     assert!(result.is_ok());
@@ -920,11 +920,11 @@ mod tests {
     #[ignore = "for dev"]
     fn test_get_gas_price() {
         use crate::api::Eth;
-        use crate::transports::pink_http::PinkHttpTransport;
+        use crate::transports::pink_http::PinkHttp;
 
         pink_extension_runtime::mock_ext::mock_all_ext();
 
-        let phttp = PinkHttpTransport::<1024>::new("http://localhost:3333");
+        let phttp = PinkHttp::<1024>::new("http://localhost:3333");
         let eth = Eth::new(phttp);
         let result = eth.gas_price().resolve();
         assert!(result.is_ok());

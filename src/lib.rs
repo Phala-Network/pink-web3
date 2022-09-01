@@ -43,7 +43,7 @@ pub mod transports;
 pub mod types;
 
 pub use crate::{
-    api::Eth,
+    api::{Accounts, Eth, Web3},
     error::{Error, Result},
 };
 

@@ -20,20 +20,20 @@ use crate::{Error, Transport};
 /// ```rust
 /// fn get_web3_sha3() {
 ///     use pink_web3::api::Web3;
-///     use pink_web3::transports::pink_http::PinkHttpTransport;
-///     let phttp = PinkHttpTransport::<1024>::new("http://localhost:3333");
+///     use pink_web3::transports::pink_http::PinkHttp;
+///     let phttp = PinkHttp::<1024>::new("http://localhost:3333");
 ///     let web3 = Web3::new(phttp);
 ///     let result = web3.sha3(b"123".to_vec().into()).resolve();
 ///     assert!(result.is_ok());
 /// }
 /// ```
 #[derive(Clone)]
-pub struct PinkHttpTransport<const BUFLEN: usize> {
+pub struct PinkHttp<const BUFLEN: usize> {
     url: String,
 }
 
-impl<const N: usize> PinkHttpTransport<N> {
-    /// Create a new PinkHttpTransport instance
+impl<const N: usize> PinkHttp<N> {
+    /// Create a new PinkHttp instance
     pub fn new(url: impl Into<String>) -> Self {
         Self { url: url.into() }
     }
@@ -51,7 +51,7 @@ impl Future for Response {
 
 type RpcResult = Result<Vec<u8>, Error>;
 
-impl<const N: usize> Transport for PinkHttpTransport<N> {
+impl<const N: usize> Transport for PinkHttp<N> {
     type Out = Ready<RpcResult>;
 
     fn execute(&self, method: &'static str, params: Vec<&dyn erased_serde::Serialize>) -> Self::Out {
@@ -73,9 +73,9 @@ impl<T: DeserializeOwned> CallFuture<T, Ready<RpcResult>> {
     }
 }
 
-/// Retreive the output of a Future driven by PinkHttpTransport
+/// Retreive the output of a Future driven by PinkHttp
 ///
-/// When using PinkHttpTransport as the transport, the Futures returned by any API should be always
+/// When using PinkHttp as the transport, the Futures returned by any API should be always
 /// ready immediate because of pink's blocking HTTP api.
 pub fn resolve_ready<F: Future>(fut: F) -> <F as Future>::Output {
     let waker = futures::task::noop_waker_ref();

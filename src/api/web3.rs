@@ -64,7 +64,7 @@ mod tests {
     fn test_pink_api() {
         pink_extension_runtime::mock_ext::mock_all_ext();
 
-        let phttp = pink_http::PinkHttpTransport::<1024>::new("http://localhost:3333");
+        let phttp = pink_http::PinkHttp::<1024>::new("http://localhost:3333");
         let web3 = Web3::new(phttp);
         let result = web3.sha3(b"123".to_vec().into()).resolve();
         assert!(result.is_ok());

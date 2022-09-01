@@ -1,12 +1,12 @@
 [package]
 name = "pink-web3"
-version = "0.19.0"
-description = "Ethereum JSON-RPC client."
-homepage = "https://github.com/tomusdrw/rust-web3"
-repository = "https://github.com/tomusdrw/rust-web3"
-documentation = "https://docs.rs/web3"
+version = "0.19.1"
+description = "Ethereum JSON-RPC client for pink."
+homepage = "https://github.com/Phala-Network/pink-web3"
+repository = "https://github.com/Phala-Network/pink-web3"
+documentation = "https://docs.rs/pink-web3"
 license = "MIT"
-keywords = ["jsonrpc", "web3", "ethereum", "rpc", "client"]
+keywords = ["web3", "ethereum", "rpc", "client", "pink"]
 authors = ["Tomasz Drwięga <tomasz@parity.io>", "Kevin Wang <wy721@qq.com>"]
 readme = "README.md"
 edition = "2021"

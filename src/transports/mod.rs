@@ -49,3 +49,5 @@ pub mod eip_1193;
 
 #[cfg(feature = "pink")]
 pub mod pink_http;
+#[cfg(feature = "pink")]
+pub use pink_http::{resolve_ready, PinkHttp};
