@@ -1,4 +1,7 @@
 //! Ethereum Contract Interface
+use crate::prelude::*;
+
+use serde::Deserialize;
 
 use crate::{
     api::{Eth, Namespace},
@@ -11,10 +14,11 @@ use crate::{
     },
     Transport,
 };
-use std::{collections::HashMap, hash::Hash, time};
+use alloc::collections::BTreeMap;
+use core::{hash::Hash, time};
 
 pub mod deploy;
-pub mod ens;
+// pub mod ens;
 mod error;
 pub mod tokens;
 
@@ -22,6 +26,21 @@ pub use crate::contract::error::Error;
 
 /// Contract `Result` type.
 pub type Result<T> = std::result::Result<T, Error>;
+
+trait DeserializeCoreExt<'de> {
+    fn load_core(json_buf: &'de [u8]) -> Result<Self>
+    where
+        Self: Sized;
+}
+
+impl<'de, T: Deserialize<'de>> DeserializeCoreExt<'de> for T {
+    fn load_core(json_buf: &'de [u8]) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        Ok(json::from_slice(json_buf).map_err(|err| Error::JsonDecode(format!("{:?}", err)))?)
+    }
+}
 
 /// Contract Call/Query Options
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -68,29 +87,25 @@ pub struct Contract<T: Transport> {
 
 impl<T: Transport> Contract<T> {
     /// Creates deployment builder for a contract given it's ABI in JSON.
-    pub fn deploy(eth: Eth<T>, json: &[u8]) -> ethabi::Result<deploy::Builder<T>> {
-        let abi = ethabi::Contract::load(json)?;
+    pub fn deploy(eth: Eth<T>, json: &[u8]) -> Result<deploy::Builder<T>> {
+        let abi = ethabi::Contract::load_core(json)?;
         Ok(deploy::Builder {
             eth,
             abi,
             options: Options::default(),
             confirmations: 1,
             poll_interval: time::Duration::from_secs(7),
-            linker: HashMap::default(),
+            linker: BTreeMap::default(),
         })
     }
 
     /// test
-    pub fn deploy_from_truffle<S>(
-        eth: Eth<T>,
-        json: &[u8],
-        linker: HashMap<S, Address>,
-    ) -> ethabi::Result<deploy::Builder<T>>
+    pub fn deploy_from_truffle<S>(eth: Eth<T>, json: &[u8], linker: BTreeMap<S, Address>) -> Result<deploy::Builder<T>>
     where
         S: AsRef<str> + Eq + Hash,
     {
-        let abi = ethabi::Contract::load(json)?;
-        let linker: HashMap<String, Address> = linker.into_iter().map(|(s, a)| (s.as_ref().to_string(), a)).collect();
+        let abi = ethabi::Contract::load_core(json)?;
+        let linker: BTreeMap<String, Address> = linker.into_iter().map(|(s, a)| (s.as_ref().to_string(), a)).collect();
         Ok(deploy::Builder {
             eth,
             abi,
@@ -109,8 +124,8 @@ impl<T: Transport> Contract<T> {
     }
 
     /// Creates new Contract Interface given blockchain address and JSON containing ABI
-    pub fn from_json(eth: Eth<T>, address: Address, json: &[u8]) -> ethabi::Result<Self> {
-        let abi = ethabi::Contract::load(json)?;
+    pub fn from_json(eth: Eth<T>, address: Address, json: &[u8]) -> Result<Self> {
+        let abi = ethabi::Contract::load_core(json)?;
         Ok(Self::new(eth, address, abi))
     }
 

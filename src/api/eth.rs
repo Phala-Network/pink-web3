@@ -1,8 +1,9 @@
 //! `Eth` namespace
 
 use crate::prelude::*;
-use crate::types::DeString;
+use crate::types::SyncState;
 use crate::{
+    api::Namespace,
     helpers::{self, CallFuture},
     types::{
         Address, Block, BlockHeader, BlockId, BlockNumber, Bytes, CallRequest, FeeHistory, Filter, Index, Log, Proof,
@@ -16,9 +17,9 @@ use crate::{
 /// # Example
 /// ```rust
 /// fn get_gas_price() {
-///     use pink_web3::api::Eth;
+///     use pink_web3::api::{Eth, Namespace};
 ///     use pink_web3::transports::pink_http::PinkHttp;
-///     let phttp = PinkHttp::<1024>::new("http://localhost:3333");
+///     let phttp = PinkHttp::new("http://localhost:3333");
 ///     let eth = Eth::new(phttp);
 ///     let result = eth.gas_price().resolve();
 ///     assert!(result.is_ok());
@@ -28,12 +29,20 @@ pub struct Eth<T> {
     transport: T,
 }
 
-impl<T: Transport> Eth<T> {
-    /// Create a new instance
-    pub fn new(transport: T) -> Self {
-        Self { transport }
+impl<T: Transport> Namespace<T> for Eth<T> {
+    fn new(transport: T) -> Self
+    where
+        Self: Sized,
+    {
+        Eth { transport }
     }
 
+    fn transport(&self) -> &T {
+        &self.transport
+    }
+}
+
+impl<T: Transport> Eth<T> {
     /// Get list of available accounts.
     pub fn accounts(&self) -> CallFuture<Vec<Address>, T::Out> {
         CallFuture::new(self.transport.execute("eth_accounts", vec![]))
@@ -329,7 +338,7 @@ impl<T: Transport> Eth<T> {
     }
 
     /// Start new pending transaction filter
-    pub fn protocol_version(&self) -> CallFuture<DeString, T::Out> {
+    pub fn protocol_version(&self) -> CallFuture<String, T::Out> {
         CallFuture::new(self.transport.execute("eth_protocolVersion", vec![]))
     }
 
@@ -371,10 +380,9 @@ impl<T: Transport> Eth<T> {
     }
 
     /// Get syncing status
-    // Not supported by serde_json_core
-    // pub fn syncing(&self) -> CallFuture<SyncState, T::Out> {
-    //     CallFuture::new(self.transport.execute("eth_syncing", vec![]))
-    // }
+    pub fn syncing(&self) -> CallFuture<SyncState, T::Out> {
+        CallFuture::new(self.transport.execute("eth_syncing", vec![]))
+    }
 
     /// Returns the account- and storage-values of the specified account including the Merkle-proof.
     pub fn proof(
@@ -394,9 +402,14 @@ impl<T: Transport> Eth<T> {
 #[cfg(test)]
 mod tests {
     use super::Eth;
-    use crate::types::{
-        Address, Block, BlockHeader, BlockId, BlockNumber, CallRequest, FilterBuilder, Log, Proof, Transaction,
-        TransactionId, TransactionReceipt, TransactionRequest, Work, H256, H520, H64, U256,
+    use crate::{
+        api::Namespace,
+        rpc::Value,
+        types::{
+            Address, Block, BlockHeader, BlockId, BlockNumber, CallRequest, FeeHistory, FilterBuilder, Log, Proof,
+            SyncInfo, SyncState, Transaction, TransactionId, TransactionReceipt, TransactionRequest, Work, H256, H520,
+            H64, U256,
+        },
     };
     use hex_literal::hex;
 
@@ -510,7 +523,7 @@ mod tests {
     "effectiveGasPrice": "0x100"
   }"#;
 
-    const _EXAMPLE_FEE_HISTORY: &str = r#"{
+    const EXAMPLE_FEE_HISTORY: &str = r#"{
       "baseFeePerGas": [
           "0x15f794d04b",
           "0x1730fe199f",
@@ -556,64 +569,60 @@ mod tests {
     ]
   }"#;
 
-    fn s(s: &str) -> String {
-        format!("{:?}", s)
-    }
-
     rpc_test! (
       Eth:accounts => "eth_accounts";
-      r#"["0x0000000000000000000000000000000000000123"]"# => vec![Address::from_low_u64_be(0x123)]
+      Value::Array(vec![Value::String("0x0000000000000000000000000000000000000123".into())]) => vec![Address::from_low_u64_be(0x123)]
     );
 
     rpc_test! (
       Eth:block_number => "eth_blockNumber";
-      s("0x123") => 0x123
+      Value::String("0x123".into()) => 0x123
     );
 
     rpc_test! (
       Eth:call, CallRequest {
         from: None, to: Some(Address::from_low_u64_be(0x123)),
         gas: None, gas_price: None,
-        value: Some(0x1u128.into()), data: None,
+        value: Some(0x1.into()), data: None,
         transaction_type: None, access_list: None,
         max_fee_per_gas: None, max_priority_fee_per_gas: None,
       }, None
       =>
-      "eth_call", r#"[{"to":"0x0000000000000000000000000000000000000123","value":"0x1"},"latest"]"#;
-      s("0x010203") => hex!("010203")
+      "eth_call", vec![r#"{"to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#, r#""latest""#];
+      Value::String("0x010203".into()) => hex!("010203")
     );
 
     rpc_test! (
       Eth:coinbase => "eth_coinbase";
-      s("0x0000000000000000000000000000000000000123") => Address::from_low_u64_be(0x123)
+      Value::String("0x0000000000000000000000000000000000000123".into()) => Address::from_low_u64_be(0x123)
     );
 
     rpc_test! (
-      Eth:compile_lll, "code" => "eth_compileLLL", r#"["code"]"#;
-      s("0x0123".into()) => hex!("0123")
+      Eth:compile_lll, "code" => "eth_compileLLL", vec![r#""code""#];
+      Value::String("0x0123".into()) => hex!("0123")
     );
 
     rpc_test! (
-      Eth:compile_solidity, "code" => "eth_compileSolidity", r#"["code"]"#;
-      s("0x0123".into()) => hex!("0123")
+      Eth:compile_solidity, "code" => "eth_compileSolidity", vec![r#""code""#];
+      Value::String("0x0123".into()) => hex!("0123")
     );
 
     rpc_test! (
-      Eth:compile_serpent, "code" => "eth_compileSerpent", r#"["code"]"#;
-      s("0x0123") => hex!("0123")
+      Eth:compile_serpent, "code" => "eth_compileSerpent", vec![r#""code""#];
+      Value::String("0x0123".into()) => hex!("0123")
     );
 
     rpc_test! (
       Eth:estimate_gas, CallRequest {
         from: None, to: Some(Address::from_low_u64_be(0x123)),
         gas: None, gas_price: None,
-        value: Some(0x1u128.into()), data: None,
+        value: Some(0x1.into()), data: None,
         transaction_type: None, access_list: None,
         max_fee_per_gas: None, max_priority_fee_per_gas: None,
       }, None
       =>
-      "eth_estimateGas", r#"[{"to":"0x0000000000000000000000000000000000000123","value":"0x1"}]"#;
-      s("0x123".into()) => U256::from(0x123i32)
+      "eth_estimateGas", vec![r#"{"to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#];
+      Value::String("0x123".into()) => 0x123
     );
 
     rpc_test! (
@@ -625,8 +634,8 @@ mod tests {
         max_fee_per_gas: None, max_priority_fee_per_gas: None,
       }, None
       =>
-      "eth_estimateGas", r#"[{"value":"0x1"}]"#;
-      s("0x5555") => 0x5555
+      "eth_estimateGas", vec![r#"{"value":"0x1"}"#];
+      Value::String("0x5555".into()) => 0x5555
     );
 
     rpc_test! (
@@ -638,108 +647,112 @@ mod tests {
         max_fee_per_gas: None, max_priority_fee_per_gas: None,
       }, Some(0x123.into())
       =>
-      "eth_estimateGas", r#"[{"to":"0x0000000000000000000000000000000000000123","value":"0x1"},"0x123"]"#;
-      s("0x123") => 0x123
+      "eth_estimateGas", vec![r#"{"to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#, r#""0x123""#];
+      Value::String("0x123".into()) => 0x123
     );
 
     rpc_test! (
       Eth:gas_price => "eth_gasPrice";
-      s("0x123") => 0x123
+      Value::String("0x123".into()) => 0x123
     );
 
-    // rpc_test! (
-    //   Eth:fee_history, 0x3, BlockNumber::Latest, None => "eth_feeHistory", r#"["0x3","latest",null]"#;
-    //   EXAMPLE_FEE_HISTORY
-    //   => ::serde_json::from_str::<FeeHistory>(EXAMPLE_FEE_HISTORY).unwrap()
-    // );
+    rpc_test! (
+      Eth:fee_history, 0x3, BlockNumber::Latest, None => "eth_feeHistory", vec![r#""0x3""#, r#""latest""#, r#"null"#];
+      ::serde_json::from_str(EXAMPLE_FEE_HISTORY).unwrap()
+      => ::serde_json::from_str::<FeeHistory>(EXAMPLE_FEE_HISTORY).unwrap()
+    );
 
     rpc_test! (
       Eth:balance, Address::from_low_u64_be(0x123), None
       =>
-      "eth_getBalance", r#"["0x0000000000000000000000000000000000000123","latest"]"#;
-      s("0x123") => 0x123
+      "eth_getBalance", vec![r#""0x0000000000000000000000000000000000000123""#, r#""latest""#];
+      Value::String("0x123".into()) => 0x123
     );
 
     rpc_test! (
-      Eth:logs, FilterBuilder::default().build() => "eth_getLogs", "[{}]";
-      &format!("[{EXAMPLE_LOG}]")
+      Eth:logs, FilterBuilder::default().build() => "eth_getLogs", vec!["{}"];
+      Value::Array(vec![::serde_json::from_str(EXAMPLE_LOG).unwrap()])
       => vec![::serde_json::from_str::<Log>(EXAMPLE_LOG).unwrap()]
     );
 
     rpc_test! (
       Eth:block:block_by_hash, BlockId::Hash(H256::from_low_u64_be(0x123))
       =>
-      "eth_getBlockByHash", r#"["0x0000000000000000000000000000000000000000000000000000000000000123",false]"#;
-      EXAMPLE_BLOCK
+      "eth_getBlockByHash", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#, r#"false"#];
+      ::serde_json::from_str(EXAMPLE_BLOCK).unwrap()
       => Some(::serde_json::from_str::<Block<H256>>(EXAMPLE_BLOCK).unwrap())
     );
 
     rpc_test! (
       Eth:block, BlockNumber::Pending
       =>
-      "eth_getBlockByNumber", r#"["pending",false]"#;
-      EXAMPLE_PENDING_BLOCK
+      "eth_getBlockByNumber", vec![r#""pending""#, r#"false"#];
+      ::serde_json::from_str(EXAMPLE_PENDING_BLOCK).unwrap()
       => Some(::serde_json::from_str::<Block<H256>>(EXAMPLE_PENDING_BLOCK).unwrap())
     );
 
     rpc_test! (
       Eth:block_with_txs, BlockNumber::Pending
       =>
-      "eth_getBlockByNumber", r#"["pending",true]"#;
-      EXAMPLE_BLOCK
+      "eth_getBlockByNumber", vec![r#""pending""#, r#"true"#];
+      ::serde_json::from_str(EXAMPLE_BLOCK).unwrap()
       => Some(::serde_json::from_str::<Block<Transaction>>(EXAMPLE_BLOCK).unwrap())
     );
 
     rpc_test! (
       Eth:block_transaction_count:block_tx_count_by_hash, BlockId::Hash(H256::from_low_u64_be(0x123))
       =>
-      "eth_getBlockTransactionCountByHash", r#"["0x0000000000000000000000000000000000000000000000000000000000000123"]"#;
-      s("0x123") => Some(0x123.into())
+      "eth_getBlockTransactionCountByHash", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
+      Value::String("0x123".into()) => Some(0x123.into())
     );
 
     rpc_test! (
       Eth:block_transaction_count, BlockNumber::Pending
       =>
-      "eth_getBlockTransactionCountByNumber", r#"["pending"]"#;
-      "null" => None
+      "eth_getBlockTransactionCountByNumber", vec![r#""pending""#];
+      Value::Null => None
     );
 
     rpc_test! (
       Eth:code, H256::from_low_u64_be(0x123), Some(BlockNumber::Pending)
       =>
-      "eth_getCode", r#"["0x0000000000000000000000000000000000000123","pending"]"#;
-      s("0x0123".into()) => hex!("0123")
+      "eth_getCode", vec![r#""0x0000000000000000000000000000000000000123""#, r#""pending""#];
+      Value::String("0x0123".into()) => hex!("0123")
     );
 
     rpc_test! (
       Eth:compilers => "eth_getCompilers";
-      "[]" => vec![]
+      Value::Array(vec![]) => vec![]
     );
 
     rpc_test! (
       Eth:chain_id => "eth_chainId";
-      s("0x123") => 0x123
+      Value::String("0x123".into()) => 0x123
     );
 
     rpc_test! (
       Eth:storage, Address::from_low_u64_be(0x123), 0x456, None
       =>
-      "eth_getStorageAt", r#"["0x0000000000000000000000000000000000000123","0x456","latest"]"#;
-      s("0x0000000000000000000000000000000000000000000000000000000000000123") => H256::from_low_u64_be(0x123)
+      "eth_getStorageAt", vec![
+        r#""0x0000000000000000000000000000000000000123""#,
+        r#""0x456""#,
+        r#""latest""#
+      ];
+      Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => H256::from_low_u64_be(0x123)
     );
 
     rpc_test! (
       Eth:transaction_count, Address::from_low_u64_be(0x123), None
       =>
-      "eth_getTransactionCount", r#"["0x0000000000000000000000000000000000000123","latest"]"#;
-      s("0x123") => 0x123
+      "eth_getTransactionCount", vec![r#""0x0000000000000000000000000000000000000123""#, r#""latest""#];
+      Value::String("0x123".into()) => 0x123
     );
 
     rpc_test! (
       Eth:transaction:tx_by_hash, TransactionId::Hash(H256::from_low_u64_be(0x123))
       =>
-      "eth_getTransactionByHash", r#"["0x0000000000000000000000000000000000000000000000000000000000000123"]"#;
-      EXAMPLE_TX
+      "eth_getTransactionByHash", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
+      ::serde_json::from_str(EXAMPLE_TX).unwrap()
       => Some(::serde_json::from_str::<Transaction>(EXAMPLE_TX).unwrap())
     );
 
@@ -749,8 +762,8 @@ mod tests {
         5.into()
       )
       =>
-      "eth_getTransactionByBlockHashAndIndex", r#"["0x0000000000000000000000000000000000000000000000000000000000000123","0x5"]"#;
-      "null" => None
+      "eth_getTransactionByBlockHashAndIndex", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#, r#""0x5""#];
+      Value::Null => None
     );
 
     rpc_test! (
@@ -759,60 +772,63 @@ mod tests {
         5.into()
       )
       =>
-      "eth_getTransactionByBlockNumberAndIndex", r#"["pending","0x5"]"#;
-      EXAMPLE_TX
+      "eth_getTransactionByBlockNumberAndIndex", vec![r#""pending""#, r#""0x5""#];
+      ::serde_json::from_str(EXAMPLE_TX).unwrap()
       => Some(::serde_json::from_str::<Transaction>(EXAMPLE_TX).unwrap())
     );
 
     rpc_test! (
       Eth:transaction_receipt, H256::from_low_u64_be(0x123)
       =>
-      "eth_getTransactionReceipt", r#"["0x0000000000000000000000000000000000000000000000000000000000000123"]"#;
-      EXAMPLE_RECEIPT
+      "eth_getTransactionReceipt", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
+      ::serde_json::from_str(EXAMPLE_RECEIPT).unwrap()
       => Some(::serde_json::from_str::<TransactionReceipt>(EXAMPLE_RECEIPT).unwrap())
     );
 
     rpc_test! (
       Eth:uncle:uncle_by_hash, BlockId::Hash(H256::from_low_u64_be(0x123)), 5
       =>
-      "eth_getUncleByBlockHashAndIndex", r#"["0x0000000000000000000000000000000000000000000000000000000000000123","0x5"]"#;
-      EXAMPLE_BLOCK
+      "eth_getUncleByBlockHashAndIndex", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#, r#""0x5""#];
+      ::serde_json::from_str(EXAMPLE_BLOCK).unwrap()
       => Some(::serde_json::from_str::<Block<H256>>(EXAMPLE_BLOCK).unwrap())
     );
 
     rpc_test! (
       Eth:uncle_header:uncle_header_by_hash, BlockId::Hash(H256::from_low_u64_be(0x123)), 5
       =>
-      "eth_getUncleByBlockHashAndIndex", r#"["0x0000000000000000000000000000000000000000000000000000000000000123","0x5"]"#;
-      EXAMPLE_BLOCK
+      "eth_getUncleByBlockHashAndIndex", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#, r#""0x5""#];
+      ::serde_json::from_str(EXAMPLE_BLOCK).unwrap()
       => Some(::serde_json::from_str::<BlockHeader>(EXAMPLE_BLOCK).unwrap())
     );
 
     rpc_test! (
       Eth:uncle:uncle_by_no, BlockNumber::Earliest, 5
       =>
-      "eth_getUncleByBlockNumberAndIndex", r#"["earliest","0x5"]"#;
-      "null" => None
+      "eth_getUncleByBlockNumberAndIndex", vec![r#""earliest""#, r#""0x5""#];
+      Value::Null => None
     );
 
     rpc_test! (
       Eth:uncle_count:uncle_count_by_hash, BlockId::Hash(H256::from_low_u64_be(0x123))
       =>
-      "eth_getUncleCountByBlockHash", r#"["0x0000000000000000000000000000000000000000000000000000000000000123"]"#;
-      s("0x123")=> Some(0x123.into())
+      "eth_getUncleCountByBlockHash", vec![r#""0x0000000000000000000000000000000000000000000000000000000000000123""#];
+      Value::String("0x123".into())=> Some(0x123.into())
     );
 
     rpc_test! (
       Eth:uncle_count:uncle_count_by_no, BlockNumber::Earliest
       =>
-      "eth_getUncleCountByBlockNumber", r#"["earliest"]"#;
-      "null" => None
+      "eth_getUncleCountByBlockNumber", vec![r#""earliest""#];
+      Value::Null => None
     );
 
     // rpc_test! (
     //   Eth:work:work_3 => "eth_getWork";
-    //   r#"["0x0000000000000000000000000000000000000000000000000000000000000123","0x0000000000000000000000000000000000000000000000000000000000000456","0x0000000000000000000000000000000000000000000000000000000000000789"]"#
-    //    => Work {
+    //   Value::Array(vec![
+    //     Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()),
+    //     Value::String("0x0000000000000000000000000000000000000000000000000000000000000456".into()),
+    //     Value::String("0x0000000000000000000000000000000000000000000000000000000000000789".into()),
+    //   ]) => Work {
     //     pow_hash: H256::from_low_u64_be(0x123),
     //     seed_hash: H256::from_low_u64_be(0x456),
     //     target: H256::from_low_u64_be(0x789),
@@ -822,8 +838,12 @@ mod tests {
 
     rpc_test! (
       Eth:work:work_4 => "eth_getWork";
-      r#"["0x0000000000000000000000000000000000000000000000000000000000000123","0x0000000000000000000000000000000000000000000000000000000000000456","0x0000000000000000000000000000000000000000000000000000000000000789",5]"#
-       => Work {
+      Value::Array(vec![
+        Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()),
+        Value::String("0x0000000000000000000000000000000000000000000000000000000000000456".into()),
+        Value::String("0x0000000000000000000000000000000000000000000000000000000000000789".into()),
+        Value::Number(5.into()),
+      ]) => Work {
         pow_hash: H256::from_low_u64_be(0x123),
         seed_hash: H256::from_low_u64_be(0x456),
         target: H256::from_low_u64_be(0x789),
@@ -833,34 +853,33 @@ mod tests {
 
     rpc_test! (
       Eth:hashrate => "eth_hashrate";
-      s("0x123") => 0x123
+      Value::String("0x123".into()) => 0x123
     );
 
     rpc_test! (
       Eth:mining => "eth_mining";
-      "true" => true
+      Value::Bool(true) => true
     );
 
     rpc_test! (
       Eth:new_block_filter => "eth_newBlockFilter";
-      s("0x123") => 0x123
+      Value::String("0x123".into()) => 0x123
     );
-
     rpc_test! (
       Eth:new_pending_transaction_filter => "eth_newPendingTransactionFilter";
-      s("0x123") => 0x123
+      Value::String("0x123".into()) => 0x123
     );
 
     rpc_test! (
       Eth:protocol_version => "eth_protocolVersion";
-      s("0x123") => "0x123"
+      Value::String("0x123".into()) => "0x123"
     );
 
     rpc_test! (
       Eth:send_raw_transaction, hex!("01020304")
       =>
-      "eth_sendRawTransaction", r#"["0x01020304"]"#;
-      s("0x0000000000000000000000000000000000000000000000000000000000000123") => H256::from_low_u64_be(0x123)
+      "eth_sendRawTransaction", vec![r#""0x01020304""#];
+      Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => H256::from_low_u64_be(0x123)
     );
 
     rpc_test! (
@@ -873,60 +892,46 @@ mod tests {
         max_fee_per_gas: None, max_priority_fee_per_gas: None,
       }
       =>
-      "eth_sendTransaction", r#"[{"from":"0x0000000000000000000000000000000000000123","to":"0x0000000000000000000000000000000000000123","gasPrice":"0x1","value":"0x1"}]"#;
-      s("0x0000000000000000000000000000000000000000000000000000000000000123") => H256::from_low_u64_be(0x123)
+      "eth_sendTransaction", vec![r#"{"from":"0x0000000000000000000000000000000000000123","to":"0x0000000000000000000000000000000000000123","gasPrice":"0x1","value":"0x1"}"#];
+      Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => H256::from_low_u64_be(0x123)
     );
 
     rpc_test! (
       Eth:sign, H256::from_low_u64_be(0x123), hex!("01020304")
       =>
-      "eth_sign", r#"["0x0000000000000000000000000000000000000123","0x01020304"]"#;
-      s("0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000123") => H520::from_low_u64_be(0x123)
+      "eth_sign", vec![r#""0x0000000000000000000000000000000000000123""#, r#""0x01020304""#];
+      Value::String("0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000123".into()) => H520::from_low_u64_be(0x123)
     );
 
     rpc_test! (
       Eth:submit_hashrate, 0x123, H256::from_low_u64_be(0x456)
       =>
-      "eth_submitHashrate", r#"["0x123","0x0000000000000000000000000000000000000000000000000000000000000456"]"#;
-      "true" => true
+      "eth_submitHashrate", vec![r#""0x123""#, r#""0x0000000000000000000000000000000000000000000000000000000000000456""#];
+      Value::Bool(true) => true
     );
 
     rpc_test! (
       Eth:submit_work, H64::from_low_u64_be(0x123), H256::from_low_u64_be(0x456), H256::from_low_u64_be(0x789)
       =>
-      "eth_submitWork", r#"["0x0000000000000123","0x0000000000000000000000000000000000000000000000000000000000000456","0x0000000000000000000000000000000000000000000000000000000000000789"]"#;
-      "true" => true
+      "eth_submitWork", vec![r#""0x0000000000000123""#, r#""0x0000000000000000000000000000000000000000000000000000000000000456""#, r#""0x0000000000000000000000000000000000000000000000000000000000000789""#];
+      Value::Bool(true) => true
     );
 
-    // rpc_test! (
-    //   Eth:syncing:syncing => "eth_syncing";
-    //   r#"{"startingBlock": "0x384","currentBlock": "0x386","highestBlock": "0x454"}"# => SyncState::Syncing(SyncInfo { starting_block: 0x384.into(), current_block: 0x386.into(), highest_block: 0x454.into()})
-    // );
+    rpc_test! (
+      Eth:syncing:syncing => "eth_syncing";
+      serde_json::json!({"startingBlock": "0x384","currentBlock": "0x386","highestBlock": "0x454"}) => SyncState::Syncing(SyncInfo { starting_block: 0x384.into(), current_block: 0x386.into(), highest_block: 0x454.into()})
+    );
 
-    // rpc_test! {
-    //   Eth:syncing:not_syncing => "eth_syncing";
-    //   "false" => SyncState::NotSyncing
-    // }
+    rpc_test! {
+      Eth:syncing:not_syncing => "eth_syncing";
+      Value::Bool(false) => SyncState::NotSyncing
+    }
 
     rpc_test! {
         Eth:proof, Address::from_low_u64_be(0x123), [U256::from(0x123)], BlockNumber::Latest
         =>
-        "eth_getProof", r#"["0x0000000000000000000000000000000000000123",["0x123"],"latest"]"#;
-      EXAMPLE_PROOF
+        "eth_getProof", vec![r#""0x0000000000000000000000000000000000000123""#, r#"["0x123"]"#, r#""latest""#];
+      ::serde_json::from_str(EXAMPLE_PROOF).unwrap()
       => Some(::serde_json::from_str::<Proof>(EXAMPLE_PROOF).unwrap())
-    }
-
-    #[test]
-    #[ignore = "for dev"]
-    fn test_get_gas_price() {
-        use crate::api::Eth;
-        use crate::transports::pink_http::PinkHttp;
-
-        pink_extension_runtime::mock_ext::mock_all_ext();
-
-        let phttp = PinkHttp::<1024>::new("http://localhost:3333");
-        let eth = Eth::new(phttp);
-        let result = eth.gas_price().resolve();
-        assert!(result.is_ok());
     }
 }

@@ -1,3 +1,4 @@
+use crate::prelude::*;
 use crate::{
     api::Namespace,
     helpers::{self, CallFuture},
@@ -33,7 +34,8 @@ impl<T: Transport> Traces<T> {
         block: Option<BlockNumber>,
     ) -> CallFuture<BlockTrace, T::Out> {
         let req = helpers::serialize(&req);
-        let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
+        let block = block.unwrap_or(BlockNumber::Latest);
+        let block = helpers::serialize(&block);
         let trace_type = helpers::serialize(&trace_type);
         CallFuture::new(self.transport.execute("trace_call", vec![req, trace_type, block]))
     }
@@ -45,7 +47,8 @@ impl<T: Transport> Traces<T> {
         block: Option<BlockId>,
     ) -> CallFuture<Vec<BlockTrace>, T::Out> {
         let reqs_with_trace_types = helpers::serialize(&reqs_with_trace_types);
-        let block = helpers::serialize(&block.unwrap_or_else(|| BlockNumber::Latest.into()));
+        let block = block.unwrap_or_else(|| BlockNumber::Latest.into());
+        let block = helpers::serialize(&block);
         CallFuture::new(
             self.transport
                 .execute("trace_callMany", vec![reqs_with_trace_types, block]),

@@ -1,5 +1,5 @@
 //! `Personal` namespace
-
+use crate::prelude::*;
 use crate::{
     api::Namespace,
     helpers::{self, CallFuture},
@@ -157,7 +157,7 @@ mod tests {
         max_fee_per_gas: None, max_priority_fee_per_gas: None,
       }, "hunter2"
       =>
-      "personal_sendTransaction", vec![r#"{"from":"0x0000000000000000000000000000000000000123","gasPrice":"0x1","to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#, r#""hunter2""#];
+      "personal_sendTransaction", vec![r#"{"from":"0x0000000000000000000000000000000000000123","to":"0x0000000000000000000000000000000000000123","gasPrice":"0x1","value":"0x1"}"#, r#""hunter2""#];
       Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => Address::from_low_u64_be(0x123)
     );
 
@@ -177,7 +177,7 @@ mod tests {
         max_priority_fee_per_gas: None,
       }, "hunter2"
       =>
-      "personal_signTransaction", vec![r#"{"data":"0x603880600c6000396000f300603880600c6000396000f3603880600c6000396000f360","from":"0x407d73d8a49eeb85d32cf465507dd71d507100c1","gas":"0x7f110","gasPrice":"0x9184e72a000","nonce":"0x0","to":"0x853f43d8a49eeb85d32cf465507dd71d507100c1","value":"0x7f110"}"#, r#""hunter2""#];
+      "personal_signTransaction", vec![r#"{"from":"0x407d73d8a49eeb85d32cf465507dd71d507100c1","to":"0x853f43d8a49eeb85d32cf465507dd71d507100c1","gas":"0x7f110","gasPrice":"0x9184e72a000","value":"0x7f110","data":"0x603880600c6000396000f300603880600c6000396000f3603880600c6000396000f360","nonce":"0x0"}"#, r#""hunter2""#];
       ::serde_json::from_str(EXAMPLE_TX).unwrap()
       => ::serde_json::from_str::<RawTransaction>(EXAMPLE_TX).unwrap()
     );

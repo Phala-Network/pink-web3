@@ -1,7 +1,9 @@
 //! Web3 Error
 use crate::prelude::*;
 use derive_more::{Display, From};
-use serde_json_core::de::Error as SerdeError;
+use json::de::Error as SerdeError;
+#[cfg(feature = "std")]
+use std::io::Error as IoError;
 
 /// Web3 `Result` type.
 pub type Result<T = ()> = std::result::Result<T, Error>;
@@ -39,15 +41,28 @@ pub enum Error {
     #[from(ignore)]
     Rpc(String),
     /// io error
+    #[cfg(feature = "std")]
     #[display(fmt = "IO error: {}", _0)]
-    #[from(ignore)]
-    Io(String),
+    Io(IoError),
     /// recovery error
     #[display(fmt = "Recovery error: {}", _0)]
     Recovery(crate::signing::RecoveryError),
     /// web3 internal error
     #[display(fmt = "Internal Web3 error")]
     Internal,
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        use self::Error::*;
+        match *self {
+            Unreachable | Decoder(_) | InvalidResponse(_) | Transport { .. } | Internal => None,
+            Rpc(_) => None,
+            Io(ref e) => Some(e),
+            Recovery(ref e) => Some(e),
+        }
+    }
 }
 
 impl From<SerdeError> for Error {
@@ -65,7 +80,8 @@ impl Clone for Error {
             InvalidResponse(s) => InvalidResponse(s.clone()),
             Transport(s) => Transport(s.clone()),
             Rpc(e) => Rpc(e.clone()),
-            Io(e) => Io(format!("{e:?}")),
+            #[cfg(feature = "std")]
+            Io(e) => Io(IoError::from(e.kind())),
             Recovery(e) => Recovery(e.clone()),
             Internal => Internal,
         }
@@ -81,7 +97,7 @@ impl PartialEq for Error {
             (Decoder(a), Decoder(b)) | (InvalidResponse(a), InvalidResponse(b)) => a == b,
             (Transport(a), Transport(b)) => a == b,
             (Rpc(a), Rpc(b)) => a == b,
-            (Io(a), Io(b)) => a == b,
+            (Io(a), Io(b)) => a.kind() == b.kind(),
             (Recovery(a), Recovery(b)) => a == b,
             _ => false,
         }

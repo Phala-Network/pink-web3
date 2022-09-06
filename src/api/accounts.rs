@@ -1,20 +1,27 @@
 //! Partial implementation of the `Accounts` namespace.
 
-use crate::{signing, types::H256, Transport};
+use crate::{api::Namespace, signing, types::H256, Transport};
 
 /// `Accounts` namespace
 #[derive(Debug, Clone)]
 pub struct Accounts<T> {
-    #[allow(unused)]
     transport: T,
 }
 
-impl<T: Transport> Accounts<T> {
-    /// New instance
-    pub fn new(transport: T) -> Self {
-        Self { transport }
+impl<T: Transport> Namespace<T> for Accounts<T> {
+    fn new(transport: T) -> Self
+    where
+        Self: Sized,
+    {
+        Accounts { transport }
     }
 
+    fn transport(&self) -> &T {
+        &self.transport
+    }
+}
+
+impl<T: Transport> Accounts<T> {
     /// Hash a message according to EIP-191.
     ///
     /// The data is a UTF-8 encoded string and will enveloped as follows:
@@ -45,7 +52,7 @@ mod accounts_signing {
     const ACCESSLISTS_TX_ID: u64 = 1;
     const EIP1559_TX_ID: u64 = 2;
 
-    impl<T: Transport + Clone> Accounts<T> {
+    impl<T: Transport> Accounts<T> {
         /// Gets the parent `web3` namespace
         fn web3(&self) -> Web3<T> {
             Web3::new(self.transport.clone())

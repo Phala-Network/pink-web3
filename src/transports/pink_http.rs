@@ -19,20 +19,20 @@ use crate::{Error, Transport};
 /// # Example
 /// ```rust
 /// fn get_web3_sha3() {
-///     use pink_web3::api::Web3;
+///     use pink_web3::api::{Web3, Namespace};
 ///     use pink_web3::transports::pink_http::PinkHttp;
-///     let phttp = PinkHttp::<1024>::new("http://localhost:3333");
+///     let phttp = PinkHttp::new("http://localhost:3333");
 ///     let web3 = Web3::new(phttp);
-///     let result = web3.sha3(b"123".to_vec().into()).resolve();
+///     let result = web3.web3().sha3(b"123".to_vec().into()).resolve();
 ///     assert!(result.is_ok());
 /// }
 /// ```
 #[derive(Clone)]
-pub struct PinkHttp<const BUFLEN: usize> {
+pub struct PinkHttp {
     url: String,
 }
 
-impl<const N: usize> PinkHttp<N> {
+impl PinkHttp {
     /// Create a new PinkHttp instance
     pub fn new(url: impl Into<String>) -> Self {
         Self { url: url.into() }
@@ -51,11 +51,11 @@ impl Future for Response {
 
 type RpcResult = Result<Vec<u8>, Error>;
 
-impl<const N: usize> Transport for PinkHttp<N> {
+impl Transport for PinkHttp {
     type Out = Ready<RpcResult>;
 
-    fn execute(&self, method: &'static str, params: Vec<&dyn erased_serde::Serialize>) -> Self::Out {
-        let request = json_rpc::encode_request::<_, N>(method, params);
+    fn execute(&self, method: &'static str, params: Vec<crate::Value>) -> Self::Out {
+        let request = json_rpc::encode_request(method, params);
         let body = request.as_bytes();
         let headers: Vec<(String, String)> = vec![("Content-Type".into(), "application/json".into())];
         let response = pink::http_post!(&self.url, body, headers);

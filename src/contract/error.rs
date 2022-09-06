@@ -1,4 +1,5 @@
 //! Contract call/query error.
+use crate::prelude::*;
 
 use crate::error::Error as ApiError;
 use derive_more::{Display, From};
@@ -11,7 +12,7 @@ pub enum Error {
     #[display(fmt = "Invalid output type: {}", _0)]
     InvalidOutputType(String),
     /// eth abi error
-    #[display(fmt = "Abi error: {}", _0)]
+    #[display(fmt = "Abi error: {:?}", _0)]
     Abi(EthError),
     /// Rpc error
     #[display(fmt = "Api error: {}", _0)]
@@ -19,10 +20,15 @@ pub enum Error {
     /// An error during deployment.
     #[display(fmt = "Deployment error: {}", _0)]
     Deployment(crate::contract::deploy::Error),
+    /// An error during Json decode.
+    #[display(fmt = "Deployment error: {}", _0)]
+    #[from(ignore)]
+    JsonDecode(String),
     /// Contract does not support this interface.
     InterfaceUnsupported,
 }
 
+#[cfg(feature = "std")]
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match *self {
@@ -31,6 +37,7 @@ impl std::error::Error for Error {
             Error::Api(ref e) => Some(e),
             Error::Deployment(ref e) => Some(e),
             Error::InterfaceUnsupported => None,
+            Error::JsonDecode(_) => None,
         }
     }
 }
@@ -43,7 +50,7 @@ pub mod deploy {
     #[derive(Debug, Display, From)]
     pub enum Error {
         /// eth abi error
-        #[display(fmt = "Abi error: {}", _0)]
+        #[display(fmt = "Abi error: {:?}", _0)]
         Abi(ethabi::Error),
         /// Rpc error
         #[display(fmt = "Api error: {}", _0)]
@@ -53,6 +60,7 @@ pub mod deploy {
         ContractDeploymentFailure(H256),
     }
 
+    #[cfg(feature = "std")]
     impl std::error::Error for Error {
         fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
             match *self {

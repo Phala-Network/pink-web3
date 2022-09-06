@@ -9,6 +9,8 @@ pub enum SigningError {
     #[display(fmt = "Message has to be a non-zero 32-bytes slice.")]
     InvalidMessage,
 }
+#[cfg(feature = "std")]
+impl std::error::Error for SigningError {}
 
 /// Error during sender recovery.
 #[derive(Debug, derive_more::Display, PartialEq, Clone)]
@@ -20,6 +22,8 @@ pub enum RecoveryError {
     #[display(fmt = "Signature is invalid (check recovery id).")]
     InvalidSignature,
 }
+#[cfg(feature = "std")]
+impl std::error::Error for RecoveryError {}
 
 #[cfg(feature = "signing")]
 pub use feature_gated::*;
