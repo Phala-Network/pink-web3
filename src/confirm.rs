@@ -6,8 +6,8 @@ use crate::{
     types::{Bytes, TransactionReceipt, TransactionRequest, H256, U64},
     Transport,
 };
-use futures::{Future, StreamExt};
 use core::time::Duration;
+use futures::{Future, StreamExt};
 
 /// Checks whether an event has been confirmed.
 pub trait ConfirmationCheck {

@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use crate::{
     api::Namespace,
-    helpers::{self, CallFuture},
+    helpers,
     types::{BlockId, BlockNumber, BlockTrace, Bytes, CallRequest, Index, Trace, TraceFilter, TraceType, H256},
     Transport,
 };
@@ -27,90 +27,77 @@ impl<T: Transport> Namespace<T> for Traces<T> {
 
 impl<T: Transport> Traces<T> {
     /// Executes the given call and returns a number of possible traces for it
-    pub fn call(
-        &self,
-        req: CallRequest,
-        trace_type: Vec<TraceType>,
-        block: Option<BlockNumber>,
-    ) -> CallFuture<BlockTrace, T::Out> {
+    pub async fn call( &self, req: CallRequest, trace_type: Vec<TraceType>, block: Option<BlockNumber>) -> Result<BlockTrace> {
         let req = helpers::serialize(&req);
         let block = block.unwrap_or(BlockNumber::Latest);
         let block = helpers::serialize(&block);
         let trace_type = helpers::serialize(&trace_type);
-        CallFuture::new(self.transport.execute("trace_call", vec![req, trace_type, block]))
+        self.transport.execute("trace_call", vec![req, trace_type, block]).await
     }
 
     /// Performs multiple call traces on top of the same block. Allows to trace dependent transactions.
-    pub fn call_many(
-        &self,
-        reqs_with_trace_types: Vec<(CallRequest, Vec<TraceType>)>,
-        block: Option<BlockId>,
-    ) -> CallFuture<Vec<BlockTrace>, T::Out> {
+    pub async fn call_many( &self, reqs_with_trace_types: Vec<(CallRequest, Vec<TraceType>)>, block: Option<BlockId>) -> Result<Vec<BlockTrace>> {
         let reqs_with_trace_types = helpers::serialize(&reqs_with_trace_types);
         let block = block.unwrap_or_else(|| BlockNumber::Latest.into());
         let block = helpers::serialize(&block);
-        CallFuture::new(
+        
             self.transport
-                .execute("trace_callMany", vec![reqs_with_trace_types, block]),
-        )
+                .execute("trace_callMany", vec![reqs_with_trace_types, block])
+        .await
     }
 
     /// Traces a call to `eth_sendRawTransaction` without making the call, returning the traces
-    pub fn raw_transaction(&self, data: Bytes, trace_type: Vec<TraceType>) -> CallFuture<BlockTrace, T::Out> {
+    pub async fn raw_transaction(&self, data: Bytes, trace_type: Vec<TraceType>) -> Result<BlockTrace> {
         let data = helpers::serialize(&data);
         let trace_type = helpers::serialize(&trace_type);
-        CallFuture::new(self.transport.execute("trace_rawTransaction", vec![data, trace_type]))
+        self.transport.execute("trace_rawTransaction", vec![data, trace_type]).await
     }
 
     /// Replays a transaction, returning the traces
-    pub fn replay_transaction(&self, hash: H256, trace_type: Vec<TraceType>) -> CallFuture<BlockTrace, T::Out> {
+    pub async fn replay_transaction(&self, hash: H256, trace_type: Vec<TraceType>) -> Result<BlockTrace> {
         let hash = helpers::serialize(&hash);
         let trace_type = helpers::serialize(&trace_type);
-        CallFuture::new(
+        
             self.transport
-                .execute("trace_replayTransaction", vec![hash, trace_type]),
-        )
+                .execute("trace_replayTransaction", vec![hash, trace_type])
+        .await
     }
 
     /// Replays all transactions in a block returning the requested traces for each transaction
-    pub fn replay_block_transactions(
-        &self,
-        block: BlockNumber,
-        trace_type: Vec<TraceType>,
-    ) -> CallFuture<Vec<BlockTrace>, T::Out> {
+    pub async fn replay_block_transactions( &self, block: BlockNumber, trace_type: Vec<TraceType>,) -> Result<Vec<BlockTrace>> {
         let block = helpers::serialize(&block);
         let trace_type = helpers::serialize(&trace_type);
-        CallFuture::new(
+        
             self.transport
-                .execute("trace_replayBlockTransactions", vec![block, trace_type]),
-        )
+                .execute("trace_replayBlockTransactions", vec![block, trace_type])
+        .await
     }
 
     /// Returns traces created at given block
-    pub fn block(&self, block: BlockNumber) -> CallFuture<Vec<Trace>, T::Out> {
+    pub async fn block(&self, block: BlockNumber) -> Result<Vec<Trace>> {
         let block = helpers::serialize(&block);
-        CallFuture::new(self.transport.execute("trace_block", vec![block]))
+        self.transport.execute("trace_block", vec![block]).await
     }
 
     /// Return traces matching the given filter
     ///
     /// See [TraceFilterBuilder](../types/struct.TraceFilterBuilder.html)
-    pub fn filter(&self, filter: TraceFilter) -> CallFuture<Vec<Trace>, T::Out> {
+    pub async fn filter(&self, filter: TraceFilter) -> Result<Vec<Trace>> {
         let filter = helpers::serialize(&filter);
-        CallFuture::new(self.transport.execute("trace_filter", vec![filter]))
+        self.transport.execute("trace_filter", vec![filter]).await
     }
 
     /// Returns trace at the given position
-    pub fn get(&self, hash: H256, index: Vec<Index>) -> CallFuture<Trace, T::Out> {
+    pub async fn get(&self, hash: H256, index: Vec<Index>) -> Result<Trace> {
         let hash = helpers::serialize(&hash);
         let index = helpers::serialize(&index);
-        CallFuture::new(self.transport.execute("trace_get", vec![hash, index]))
+        self.transport.execute("trace_get", vec![hash, index]).await
     }
 
     /// Returns all traces of a given transaction
-    pub fn transaction(&self, hash: H256) -> CallFuture<Vec<Trace>, T::Out> {
+    pub async fn transaction(&self, hash: H256) -> Result<Vec<Trace>> {
         let hash = helpers::serialize(&hash);
-        CallFuture::new(self.transport.execute("trace_transaction", vec![hash]))
+        self.transport.execute("trace_transaction", vec![hash]).await
     }
 }
 

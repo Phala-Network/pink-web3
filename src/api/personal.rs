@@ -2,7 +2,8 @@
 use crate::prelude::*;
 use crate::{
     api::Namespace,
-    helpers::{self, CallFuture},
+    error::Result,
+    helpers,
     types::{Address, Bytes, RawTransaction, TransactionRequest, H256, H520},
     Transport,
 };
@@ -28,78 +29,75 @@ impl<T: Transport> Namespace<T> for Personal<T> {
 
 impl<T: Transport> Personal<T> {
     /// Returns a list of available accounts.
-    pub fn list_accounts(&self) -> CallFuture<Vec<Address>, T::Out> {
-        CallFuture::new(self.transport.execute("personal_listAccounts", vec![]))
+    pub async fn list_accounts(&self) -> Result<Vec<Address>> {
+        self.transport.execute("personal_listAccounts", vec![]).await
     }
 
     /// Creates a new account and protects it with given password.
     /// Returns the address of created account.
-    pub fn new_account(&self, password: &str) -> CallFuture<Address, T::Out> {
+    pub async fn new_account(&self, password: &str) -> Result<Address> {
         let password = helpers::serialize(&password);
-        CallFuture::new(self.transport.execute("personal_newAccount", vec![password]))
+        self.transport.execute("personal_newAccount", vec![password]).await
     }
 
     /// Unlocks the account with given password for some period of time (or single transaction).
     /// Returns `true` if the call was successful.
-    pub fn unlock_account(&self, address: Address, password: &str, duration: Option<u16>) -> CallFuture<bool, T::Out> {
+    pub async fn unlock_account(&self, address: Address, password: &str, duration: Option<u16>) -> Result<bool> {
         let address = helpers::serialize(&address);
         let password = helpers::serialize(&password);
         let duration = helpers::serialize(&duration);
-        CallFuture::new(
-            self.transport
-                .execute("personal_unlockAccount", vec![address, password, duration]),
-        )
+
+        self.transport
+            .execute("personal_unlockAccount", vec![address, password, duration])
+            .await
     }
 
     /// Sends a transaction from locked account.
     /// Returns transaction hash.
-    pub fn send_transaction(&self, transaction: TransactionRequest, password: &str) -> CallFuture<H256, T::Out> {
+    pub async fn send_transaction(&self, transaction: TransactionRequest, password: &str) -> Result<H256> {
         let transaction = helpers::serialize(&transaction);
         let password = helpers::serialize(&password);
-        CallFuture::new(
-            self.transport
-                .execute("personal_sendTransaction", vec![transaction, password]),
-        )
+
+        self.transport
+            .execute("personal_sendTransaction", vec![transaction, password])
+            .await
     }
 
     /// Signs an Ethereum specific message with `sign(keccak256("\x19Ethereum Signed Message: " + len(data) + data)))`
     ///
     /// The account does not need to be unlocked to make this call, and will not be left unlocked after.
     /// Returns encoded signature.
-    pub fn sign(&self, data: Bytes, account: Address, password: &str) -> CallFuture<H520, T::Out> {
+    pub async fn sign(&self, data: Bytes, account: Address, password: &str) -> Result<H520> {
         let data = helpers::serialize(&data);
         let address = helpers::serialize(&account);
         let password = helpers::serialize(&password);
-        CallFuture::new(self.transport.execute("personal_sign", vec![data, address, password]))
+        self.transport
+            .execute("personal_sign", vec![data, address, password])
+            .await
     }
 
     /// Signs a transaction without dispatching it to the network.
     /// The account does not need to be unlocked to make this call, and will not be left unlocked after.
     /// Returns a signed transaction in raw bytes along with it's details.
-    pub fn sign_transaction(
-        &self,
-        transaction: TransactionRequest,
-        password: &str,
-    ) -> CallFuture<RawTransaction, T::Out> {
+    pub async fn sign_transaction(&self, transaction: TransactionRequest, password: &str) -> Result<RawTransaction> {
         let transaction = helpers::serialize(&transaction);
         let password = helpers::serialize(&password);
-        CallFuture::new(
-            self.transport
-                .execute("personal_signTransaction", vec![transaction, password]),
-        )
+
+        self.transport
+            .execute("personal_signTransaction", vec![transaction, password])
+            .await
     }
 
     /// Imports a raw key and protects it with the given password.
     /// Returns the address of created account.
-    pub fn import_raw_key(&self, private_key: &[u8; 32], password: &str) -> CallFuture<Address, T::Out> {
+    pub async fn import_raw_key(&self, private_key: &[u8; 32], password: &str) -> Result<Address> {
         let private_key = hex::encode(private_key);
         let private_key = helpers::serialize(&private_key);
         let password = helpers::serialize(&password);
 
-        CallFuture::new(
-            self.transport
-                .execute("personal_importRawKey", vec![private_key, password]),
-        )
+        self.transport
+            .execute("personal_importRawKey", vec![private_key, password])
+            .await
     }
 }
 

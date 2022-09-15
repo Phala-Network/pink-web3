@@ -1,5 +1,4 @@
 //! `Eth` namespace, filters.
-use crate::helpers::CallFuture;
 use crate::prelude::*;
 use crate::{
     api::Namespace,
@@ -111,7 +110,7 @@ impl<T: Transport, I> BaseFilter<T, I> {
         Self: Sized,
     {
         let id = helpers::serialize(&self.id);
-        Ok(CallFuture::new(self.transport.execute("eth_uninstallFilter", vec![id])).await?)
+        self.transport.execute("eth_uninstallFilter", vec![id]).await
     }
 
     /// Borrows the transport.
@@ -125,7 +124,7 @@ impl<T: Transport, I: DeserializeOwned> BaseFilter<T, I> {
     /// Will return logs that happened after previous poll.
     pub async fn poll(&self) -> error::Result<Option<Vec<I>>> {
         let id = helpers::serialize(&self.id);
-        Ok(CallFuture::new(self.transport.execute("eth_getFilterChanges", vec![id])).await?)
+        self.transport.execute("eth_getFilterChanges", vec![id]).await
     }
 
     /// Returns the stream of items which automatically polls the server
@@ -138,7 +137,7 @@ impl<T: Transport> BaseFilter<T, Log> {
     /// Returns future with all logs matching given filter
     pub async fn logs(&self) -> error::Result<Vec<Log>> {
         let id = helpers::serialize(&self.id);
-        Ok(CallFuture::new(self.transport.execute("eth_getFilterLogs", vec![id])).await?)
+        self.transport.execute("eth_getFilterLogs", vec![id]).await
     }
 }
 
@@ -147,7 +146,7 @@ async fn create_filter<'a, T: Transport, F: FilterInterface>(
     transport: T,
     arg: Vec<crate::Value<'a>>,
 ) -> error::Result<BaseFilter<T, F::Output>> {
-    let id = CallFuture::new(transport.execute(F::constructor(), arg)).await?;
+    let id = transport.execute(F::constructor(), arg).await?;
     Ok(BaseFilter {
         id,
         transport,

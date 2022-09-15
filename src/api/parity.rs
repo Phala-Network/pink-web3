@@ -1,7 +1,8 @@
 use crate::prelude::*;
 use crate::{
     api::Namespace,
-    helpers::{self, CallFuture},
+    error::Result,
+    helpers,
     types::{Bytes, CallRequest, ParityPendingTransactionFilter, Transaction},
     Transport,
 };
@@ -27,19 +28,19 @@ impl<T: Transport> Namespace<T> for Parity<T> {
 
 impl<T: Transport> Parity<T> {
     /// Sequentially call multiple contract methods in one request without changing the state of the blockchain.
-    pub fn call(&self, reqs: Vec<CallRequest>) -> CallFuture<Vec<Bytes>, T::Out> {
+    pub async fn call(&self, reqs: Vec<CallRequest>) -> Result<Vec<Bytes>> {
         let reqs = helpers::serialize(&reqs);
 
-        CallFuture::new(self.transport.execute("parity_call", vec![reqs]))
+        self.transport.execute("parity_call", vec![reqs]).await
     }
 
     /// Get pending transactions
     /// Blocked by https://github.com/openethereum/openethereum/issues/159
-    pub fn pending_transactions(
+    pub async fn pending_transactions(
         &self,
         limit: Option<usize>,
         filter: Option<ParityPendingTransactionFilter>,
-    ) -> CallFuture<Vec<Transaction>, T::Out> {
+    ) -> Result<Vec<Transaction>> {
         let limit = helpers::serialize(&limit);
         let filter = filter.as_ref().map(helpers::serialize);
         let params = match (limit, filter) {
@@ -47,7 +48,7 @@ impl<T: Transport> Parity<T> {
             (l, None) => vec![l],
         };
 
-        CallFuture::new(self.transport.execute("parity_pendingTransactions", params))
+        self.transport.execute("parity_pendingTransactions", params).await
     }
 }
 

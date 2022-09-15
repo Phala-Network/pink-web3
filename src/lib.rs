@@ -12,6 +12,7 @@
 #![recursion_limit = "256"]
 #![cfg_attr(not(any(feature = "std", feature = "test", test)), no_std)]
 
+use futures::Future;
 #[cfg(test)]
 use jsonrpc_core as rpc;
 
@@ -35,6 +36,7 @@ mod prelude {
 }
 
 use prelude::*;
+use serde::de::DeserializeOwned;
 
 /// Re-export of the `futures` crate.
 #[macro_use]
@@ -64,16 +66,44 @@ type Value<'a> = &'a dyn erased_serde::Serialize;
 /// Transport implementation
 pub trait Transport: Clone {
     /// The type of future this transport returns when a call is made.
-    type Out: core::future::Future<Output = Result<Vec<u8>>>;
+    type Out<T>: core::future::Future<Output = Result<T>>;
 
     /// Execute remote method with given parameters.
-    fn execute(&self, method: &'static str, params: Vec<Value>) -> Self::Out;
+    fn execute<T: DeserializeOwned>(&self, method: &'static str, params: Vec<Value>) -> Self::Out<T>;
 }
 
 impl<T: Transport> Transport for &T {
-    type Out = T::Out;
+    type Out<O> = T::Out<O>;
 
-    fn execute(&self, method: &'static str, params: Vec<Value>) -> Self::Out {
+    fn execute<O: DeserializeOwned>(&self, method: &'static str, params: Vec<Value>) -> Self::Out<O> {
         (*self).execute(method, params)
+    }
+}
+
+/// A future extension to resolve the immediately ready futures
+pub trait Resolve: Future {
+    /// Resolve the immediately ready futures
+    fn resolve(self) -> Self::Output;
+}
+
+impl<F: Future> Resolve for F {
+    /// Blocking resolves the output
+    fn resolve(self) -> Self::Output {
+        resolve_ready(self)
+    }
+}
+
+/// Retreive the output of a Future driven by PinkHttp
+///
+/// When using PinkHttp as the transport, the Futures returned by any API should be always
+/// ready immediate because of pink's blocking HTTP api.
+pub fn resolve_ready<F: Future>(fut: F) -> <F as Future>::Output {
+    let waker = futures::task::noop_waker_ref();
+    let mut cx = core::task::Context::from_waker(waker);
+    use core::task::Poll::*;
+    pin_mut!(fut);
+    match fut.poll(&mut cx) {
+        Ready(v) => v,
+        Pending => panic!("Failed to resolve a ready future"),
     }
 }

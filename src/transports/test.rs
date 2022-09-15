@@ -1,5 +1,7 @@
 //! Test Transport
-use crate::{error, helpers::json_rpc, rpc, Transport};
+use serde::de::DeserializeOwned;
+
+use crate::{error, helpers::json_rpc, rpc, Error, Transport};
 use core::future::Ready;
 use std::{cell::RefCell, collections::VecDeque, rc::Rc};
 
@@ -12,14 +14,13 @@ pub struct TestTransport {
 }
 
 impl Transport for TestTransport {
-    type Out = Ready<error::Result<Vec<u8>>>;
+    type Out<T> = Ready<error::Result<T>>;
 
-    fn execute(&self, method: &'static str, params: Vec<crate::Value>) -> Self::Out {
+    fn execute<T: DeserializeOwned>(&self, method: &'static str, params: Vec<crate::Value>) -> Self::Out<T> {
         let request = json_rpc::encode_request(method, params);
         self.requests.borrow_mut().push((method.into(), request));
         let response = self.responses.borrow_mut().pop_front().unwrap();
-        let returning = format!(r#"{{ "id": 0, "jsonrpc": "2.0", "result": {} }}"#, serde_json::to_string(&response).unwrap());
-        core::future::ready(Ok(returning.as_bytes().to_vec()))
+        core::future::ready(serde_json::from_value(response).or(Err(Error::InvalidResponse("Invalid response".into()))))
     }
 }
 

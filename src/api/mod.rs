@@ -31,8 +31,8 @@ use crate::{
     types::{Bytes, TransactionReceipt, TransactionRequest, U64},
     Transport,
 };
-use futures::Future;
 use core::time::Duration;
+use futures::Future;
 
 /// Common API for all namespaces
 pub trait Namespace<T: Transport>: Clone {
