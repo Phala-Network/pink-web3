@@ -822,19 +822,19 @@ mod tests {
       Value::Null => None
     );
 
-    // rpc_test! (
-    //   Eth:work:work_3 => "eth_getWork";
-    //   Value::Array(vec![
-    //     Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()),
-    //     Value::String("0x0000000000000000000000000000000000000000000000000000000000000456".into()),
-    //     Value::String("0x0000000000000000000000000000000000000000000000000000000000000789".into()),
-    //   ]) => Work {
-    //     pow_hash: H256::from_low_u64_be(0x123),
-    //     seed_hash: H256::from_low_u64_be(0x456),
-    //     target: H256::from_low_u64_be(0x789),
-    //     number: None,
-    //   }
-    // );
+    rpc_test! (
+      Eth:work:work_3 => "eth_getWork";
+      Value::Array(vec![
+        Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()),
+        Value::String("0x0000000000000000000000000000000000000000000000000000000000000456".into()),
+        Value::String("0x0000000000000000000000000000000000000000000000000000000000000789".into()),
+      ]) => Work {
+        pow_hash: H256::from_low_u64_be(0x123),
+        seed_hash: H256::from_low_u64_be(0x456),
+        target: H256::from_low_u64_be(0x789),
+        number: None,
+      }
+    );
 
     rpc_test! (
       Eth:work:work_4 => "eth_getWork";

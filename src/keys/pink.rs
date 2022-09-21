@@ -41,8 +41,8 @@ impl KeyPair {
 }
 
 impl Key for KeyPair {
-    fn sign(&self, message: &[u8], chain_id: Option<u64>) -> Result<Signature, SigningError> {
-        let signature = signing::sign(message, &self.privkey, SigType::Ecdsa);
+    fn sign(&self, message: &[u8; 32], chain_id: Option<u64>) -> Result<Signature, SigningError> {
+        let signature = signing::ecdsa_sign_prehashed(&self.privkey, *message);
         let recovery_id: u64 = signature[64].into();
         let standard_v = recovery_id;
         let v = if let Some(chain_id) = chain_id {
@@ -58,8 +58,8 @@ impl Key for KeyPair {
         Ok(Signature { v, r, s })
     }
 
-    fn sign_message(&self, message: &[u8]) -> Result<Signature, SigningError> {
-        let signature = signing::sign(message, &self.privkey, SigType::Ecdsa);
+    fn sign_message(&self, message: &[u8; 32]) -> Result<Signature, SigningError> {
+        let signature = signing::ecdsa_sign_prehashed(&self.privkey, *message);
         let recovery_id: u64 = signature[64].into();
 
         let v = recovery_id;
@@ -75,11 +75,11 @@ impl Key for KeyPair {
 }
 
 impl Key for &KeyPair {
-    fn sign(&self, message: &[u8], chain_id: Option<u64>) -> Result<Signature, SigningError> {
+    fn sign(&self, message: &[u8; 32], chain_id: Option<u64>) -> Result<Signature, SigningError> {
         (*self).sign(message, chain_id)
     }
 
-    fn sign_message(&self, message: &[u8]) -> Result<Signature, SigningError> {
+    fn sign_message(&self, message: &[u8; 32]) -> Result<Signature, SigningError> {
         (*self).sign_message(message)
     }
 

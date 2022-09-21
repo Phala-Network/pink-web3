@@ -51,11 +51,11 @@ mod feature_gated {
         /// When a chain ID is provided, the `Signature`'s V-value will have chain replay
         /// protection added (as per EIP-155). Otherwise, the V-value will be in
         /// 'Electrum' notation.
-        fn sign(&self, message: &[u8], chain_id: Option<u64>) -> Result<Signature, SigningError>;
+        fn sign(&self, message: &[u8; 32], chain_id: Option<u64>) -> Result<Signature, SigningError>;
 
         /// Sign given message without manipulating V-value; used for typed transactions
         /// (AccessList and EIP-1559)
-        fn sign_message(&self, message: &[u8]) -> Result<Signature, SigningError>;
+        fn sign_message(&self, message: &[u8; 32]) -> Result<Signature, SigningError>;
 
         /// Get public address that this key represents.
         fn address(&self) -> Address;

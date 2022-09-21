@@ -33,7 +33,7 @@ json = { version = "0.4.0", package = "pink-json", default-features = false }
 tiny-keccak = { version = "2.0.1", features = ["keccak"] }
 pin-project = "1.0"
 # Optional deps
-pink = { version = "0.1.16", package = "pink-extension", default-features = false, optional = true }
+pink = { version = "0.1.18", package = "pink-extension", default-features = false, optional = true }
 ink_env = { version = "3", default-features = false, optional = true }
 
 [dev-dependencies]
