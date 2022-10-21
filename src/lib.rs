@@ -81,15 +81,14 @@ impl<T: Transport> Transport for &T {
 }
 
 /// A future extension to resolve the immediately ready futures
-pub trait Resolve: Future {
-    /// Resolve the immediately ready futures
-    fn resolve(self) -> Self::Output;
+pub trait ExpectReady: Future {
+    /// Assume the future is ready and return the Output.
+    fn expect_ready(self) -> Self::Output;
 }
 
-impl<F: Future> Resolve for F {
-    /// Blocking resolves the output
-    fn resolve(self) -> Self::Output {
-        resolve_ready(self)
+impl<F: Future> ExpectReady for F {
+    fn expect_ready(self) -> Self::Output {
+        expect_ready(self)
     }
 }
 
@@ -97,7 +96,7 @@ impl<F: Future> Resolve for F {
 ///
 /// When using PinkHttp as the transport, the Futures returned by any API should be always
 /// ready immediate because of pink's blocking HTTP api.
-pub fn resolve_ready<F: Future>(fut: F) -> <F as Future>::Output {
+pub fn expect_ready<F: Future>(fut: F) -> <F as Future>::Output {
     let waker = futures::task::noop_waker_ref();
     let mut cx = core::task::Context::from_waker(waker);
     use core::task::Poll::*;

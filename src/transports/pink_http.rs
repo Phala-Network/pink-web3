@@ -13,6 +13,9 @@ use crate::prelude::*;
 use crate::{error::TransportError, helpers::json_rpc};
 use crate::{Error, Transport};
 
+// Deprecated
+pub use crate::expect_ready as resolve_ready;
+
 /// A Transport using pink http API
 ///
 /// # Example
@@ -20,10 +23,10 @@ use crate::{Error, Transport};
 /// fn get_web3_sha3() {
 ///     use pink_web3::api::{Web3, Namespace};
 ///     use pink_web3::transports::pink_http::PinkHttp;
-///     use pink_web3::Resolve;
+///     use pink_web3::ExpectReady;
 ///     let phttp = PinkHttp::new("http://localhost:3333");
 ///     let web3 = Web3::new(phttp);
-///     let result = web3.web3().sha3(b"123".to_vec().into()).resolve();
+///     let result = web3.web3().sha3(b"123".to_vec().into()).expect_ready();
 ///     assert!(result.is_ok());
 /// }
 /// ```

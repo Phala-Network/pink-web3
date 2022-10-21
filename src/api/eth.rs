@@ -22,10 +22,10 @@ use crate::{
 /// fn get_gas_price() {
 ///     use pink_web3::api::{Eth, Namespace};
 ///     use pink_web3::transports::pink_http::PinkHttp;
-///     use pink_web3::Resolve;
+///     use pink_web3::ExpectReady;
 ///     let phttp = PinkHttp::new("http://localhost:3333");
 ///     let eth = Eth::new(phttp);
-///     let result = eth.gas_price().resolve();
+///     let result = eth.gas_price().expect_ready();
 ///     assert!(result.is_ok());
 /// }
 #[derive(Debug, Clone)]
