@@ -38,6 +38,11 @@ impl KeyPair {
             .expect("Derive returned an invalid key");
         privkey.into()
     }
+
+    /// Exports the private key
+    pub fn private_key(&self) -> [u8; 32] {
+        self.privkey
+    }
 }
 
 impl Key for KeyPair {
