@@ -61,6 +61,7 @@ pub(crate) mod json_rpc {
 
     #[derive(Serialize)]
     struct Request<'a, Params> {
+        jsonrpc: &'a str,
         id: u32,
         method: &'a str,
         params: Params,
@@ -79,9 +80,14 @@ pub(crate) mod json_rpc {
     }
 
     pub fn encode_request<Params: Serialize>(method: &str, params: Params) -> String {
-        json::to_string(&Request { id: 0, method, params })
-            .expect("Failed to encode rpc request")
-            .to_string()
+        json::to_string(&Request {
+            jsonrpc: "2.0",
+            id: 0,
+            method,
+            params,
+        })
+        .expect("Failed to encode rpc request")
+        .to_string()
     }
 
     pub fn decode_response<'de, T: Deserialize<'de>>(response: &'de [u8]) -> Result<T, Error> {

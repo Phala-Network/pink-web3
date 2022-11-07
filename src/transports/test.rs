@@ -42,7 +42,7 @@ impl TestTransport {
         let (m, p) = self.requests.borrow().get(idx).expect("Expected result.").clone();
         assert_eq!(&m, method);
         let params = params.join(",");
-        let payload = format!(r#"{{"id":0,"method":"{method}","params":[{params}]}}"#);
+        let payload = format!(r#"{{"jsonrpc":"2.0","id":0,"method":"{method}","params":[{params}]}}"#);
         let expected: serde_json::Value = serde_json::from_str(&payload).unwrap();
         let actual: serde_json::Value = serde_json::from_str(&p).unwrap();
         assert_eq!(actual, expected);

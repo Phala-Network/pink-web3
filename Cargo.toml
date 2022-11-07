@@ -1,6 +1,6 @@
 [package]
 name = "pink-web3"
-version = "0.19.3"
+version = "0.19.4"
 description = "Ethereum JSON-RPC client for pink."
 homepage = "https://github.com/Phala-Network/pink-web3"
 repository = "https://github.com/Phala-Network/pink-web3"
