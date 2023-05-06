@@ -39,6 +39,7 @@ impl<T: Transport> Accounts<T> {
 mod accounts_signing {
     use super::*;
     use crate::prelude::*;
+    use crate::types::{RecoveryMessage, Recovery};
     use crate::{
         api::Web3,
         error,
@@ -160,6 +161,37 @@ mod accounts_signing {
                 s: signature.s,
                 signature: signature_bytes,
             }
+        }
+
+        /// Recovers the Ethereum address which was used to sign the given data.
+        ///
+        /// Recovery signature data uses 'Electrum' notation, this means the `v`
+        /// value is expected to be either `27` or `28`.
+        pub fn recover<R>(&self, recovery: R) -> error::Result<Address>
+        where
+            R: Into<Recovery>,
+        {
+            let recovery = recovery.into();
+            let message_hash = match recovery.message {
+                RecoveryMessage::Data(ref message) => self.hash_message(message),
+                RecoveryMessage::Hash(hash) => hash,
+            };
+            let (signature, recovery_id) = recovery
+                .as_signature()
+                .ok_or(error::Error::Recovery(signing::RecoveryError::InvalidSignature))?;
+
+            let mut recoverable_signature: [u8; 65] = [0; 65];
+            recoverable_signature[..64].copy_from_slice(&signature[..]);
+            recoverable_signature[64] = recovery_id as u8;
+
+            let mut pub_key = [0; 33];
+            ink_env::ecdsa_recover(&recoverable_signature, message_hash.as_fixed_bytes(), &mut pub_key)
+                .or(Err(error::Error::Recovery(signing::RecoveryError::InvalidSignature)))?;
+
+            let mut address = [0; 20];
+            ink_env::ecdsa_to_eth_address(&pub_key, &mut address)
+                .or(Err(error::Error::Recovery(signing::RecoveryError::InvalidSignature)))?;
+            Ok(address.into())
         }
     }
     /// A transaction used for RLP encoding, hashing and signing.
