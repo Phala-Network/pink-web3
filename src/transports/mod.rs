@@ -1,9 +1,13 @@
 //! Supported Ethereum JSON-RPC transports.
 
+#[cfg(feature = "disabled")]
 pub mod batch;
 
+#[cfg(feature = "disabled")]
 pub use self::batch::Batch;
+#[cfg(feature = "disabled")]
 pub mod either;
+#[cfg(feature = "disabled")]
 pub use self::either::Either;
 
 #[cfg(any(feature = "http", feature = "http-rustls"))]
@@ -42,3 +46,8 @@ impl From<async_native_tls::Error> for crate::Error {
 
 #[cfg(feature = "eip-1193")]
 pub mod eip_1193;
+
+#[cfg(feature = "pink")]
+pub mod pink_http;
+#[cfg(feature = "pink")]
+pub use pink_http::{resolve_ready, PinkHttp};

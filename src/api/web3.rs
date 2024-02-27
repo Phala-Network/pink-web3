@@ -1,4 +1,5 @@
 //! `Web3` namespace
+use crate::prelude::*;
 
 use crate::{
     api::Namespace,

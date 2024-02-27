@@ -1,40 +1,25 @@
 //! Test Transport
-
-use crate::{
-    error::{self, Error},
-    helpers, rpc, RequestId, Transport,
-};
-use futures::future::{self, BoxFuture, FutureExt};
+use crate::{error, helpers::json_rpc, rpc, Transport};
+use core::future::Ready;
 use std::{cell::RefCell, collections::VecDeque, rc::Rc};
-
-type Result<T> = BoxFuture<'static, error::Result<T>>;
 
 /// Test Transport
 #[derive(Debug, Default, Clone)]
 pub struct TestTransport {
     asserted: usize,
-    requests: Rc<RefCell<Vec<(String, Vec<rpc::Value>)>>>,
+    requests: Rc<RefCell<Vec<(String, String)>>>,
     responses: Rc<RefCell<VecDeque<rpc::Value>>>,
 }
 
 impl Transport for TestTransport {
-    type Out = Result<rpc::Value>;
+    type Out = Ready<error::Result<Vec<u8>>>;
 
-    fn prepare(&self, method: &str, params: Vec<rpc::Value>) -> (RequestId, rpc::Call) {
-        let request = helpers::build_request(1, method, params.clone());
-        self.requests.borrow_mut().push((method.into(), params));
-        (self.requests.borrow().len(), request)
-    }
-
-    fn send(&self, id: RequestId, request: rpc::Call) -> Result<rpc::Value> {
-        future::ready(match self.responses.borrow_mut().pop_front() {
-            Some(response) => Ok(response),
-            None => {
-                println!("Unexpected request (id: {:?}): {:?}", id, request);
-                Err(Error::Unreachable)
-            }
-        })
-        .boxed()
+    fn execute(&self, method: &'static str, params: Vec<crate::Value>) -> Self::Out {
+        let request = json_rpc::encode_request(method, params);
+        self.requests.borrow_mut().push((method.into(), request));
+        let response = self.responses.borrow_mut().pop_front().unwrap();
+        let returning = format!(r#"{{ "id": 0, "jsonrpc": "2.0", "result": {} }}"#, serde_json::to_string(&response).unwrap());
+        core::future::ready(Ok(returning.as_bytes().to_vec()))
     }
 }
 
@@ -56,8 +41,11 @@ impl TestTransport {
 
         let (m, p) = self.requests.borrow().get(idx).expect("Expected result.").clone();
         assert_eq!(&m, method);
-        let p: Vec<String> = p.into_iter().map(|p| serde_json::to_string(&p).unwrap()).collect();
-        assert_eq!(p, params);
+        let params = params.join(",");
+        let payload = format!(r#"{{"jsonrpc":"2.0","id":0,"method":"{method}","params":[{params}]}}"#);
+        let expected: serde_json::Value = serde_json::from_str(&payload).unwrap();
+        let actual: serde_json::Value = serde_json::from_str(&p).unwrap();
+        assert_eq!(actual, expected);
     }
 
     /// Assert no more requests

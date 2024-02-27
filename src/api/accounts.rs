@@ -38,14 +38,13 @@ impl<T: Transport> Accounts<T> {
 #[cfg(feature = "signing")]
 mod accounts_signing {
     use super::*;
+    use crate::prelude::*;
+    use crate::types::{RecoveryMessage, Recovery};
     use crate::{
         api::Web3,
         error,
         signing::Signature,
-        types::{
-            AccessList, Address, Bytes, Recovery, RecoveryMessage, SignedData, SignedTransaction,
-            TransactionParameters, U256, U64,
-        },
+        types::{AccessList, Address, Bytes, SignedData, SignedTransaction, TransactionParameters, U256, U64},
     };
     use rlp::RlpStream;
     use std::convert::TryInto;
@@ -136,7 +135,7 @@ mod accounts_signing {
             let message_hash = self.hash_message(message);
 
             let signature = key
-                .sign(message_hash.as_bytes(), None)
+                .sign(&message_hash.0, None)
                 .expect("hash is non-zero 32-bytes; qed");
             let v = signature
                 .v
@@ -180,8 +179,19 @@ mod accounts_signing {
             let (signature, recovery_id) = recovery
                 .as_signature()
                 .ok_or(error::Error::Recovery(signing::RecoveryError::InvalidSignature))?;
-            let address = signing::recover(message_hash.as_bytes(), &signature, recovery_id)?;
-            Ok(address)
+
+            let mut recoverable_signature: [u8; 65] = [0; 65];
+            recoverable_signature[..64].copy_from_slice(&signature[..]);
+            recoverable_signature[64] = recovery_id as u8;
+
+            let mut pub_key = [0; 33];
+            ink_env::ecdsa_recover(&recoverable_signature, message_hash.as_fixed_bytes(), &mut pub_key)
+                .or(Err(error::Error::Recovery(signing::RecoveryError::InvalidSignature)))?;
+
+            let mut address = [0; 20];
+            ink_env::ecdsa_to_eth_address(&pub_key, &mut address)
+                .or(Err(error::Error::Recovery(signing::RecoveryError::InvalidSignature)))?;
+            Ok(address.into())
         }
     }
     /// A transaction used for RLP encoding, hashing and signing.
@@ -351,7 +361,7 @@ mod accounts_signing {
     }
 }
 
-#[cfg(all(test, not(target_arch = "wasm32")))]
+#[cfg(all(test, not(target_arch = "wasm32"), not(feature = "pink")))]
 mod tests {
     use super::*;
     use crate::{
@@ -395,10 +405,10 @@ mod tests {
 
         transport.assert_request(
             "eth_getTransactionCount",
-            &[json!(from).to_string(), json!("latest").to_string()],
+            &format!(r#"[{:?}, "latest"]"#, json!(from).to_string()),
         );
-        transport.assert_request("eth_gasPrice", &[]);
-        transport.assert_request("eth_chainId", &[]);
+        transport.assert_request("eth_gasPrice", "[]");
+        transport.assert_request("eth_chainId", "[]");
         transport.assert_no_more_requests();
 
         let expected = SignedTransaction {
@@ -517,7 +527,7 @@ mod tests {
         let signed = futures::executor::block_on(accounts.sign_transaction(
             TransactionParameters {
                 nonce: Some(0.into()),
-                gas_price: Some(1.into()),
+                gas_price: Some(1u128.into()),
                 chain_id: Some(42),
                 ..Default::default()
             },
@@ -537,15 +547,15 @@ mod tests {
         // https://web3js.readthedocs.io/en/v1.2.2/web3-eth-accounts.html#eth-accounts-signtransaction
 
         let tx = Transaction {
-            nonce: 0.into(),
-            gas: 2_000_000.into(),
+            nonce: 0u128.into(),
+            gas: 2_000_000u128.into(),
             gas_price: 234_567_897_654_321u64.into(),
             to: Some(hex!("F0109fC8DF283027b6285cc889F5aA624EaC1F55").into()),
-            value: 1_000_000_000.into(),
+            value: 1_000_000_000u128.into(),
             data: Vec::new(),
             transaction_type: None,
             access_list: vec![],
-            max_priority_fee_per_gas: 0.into(),
+            max_priority_fee_per_gas: 0u128.into(),
         };
         let skey = SecretKey::from_slice(&hex!(
             "4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318"

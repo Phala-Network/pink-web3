@@ -1,7 +1,8 @@
 //! Web3 Error
-use crate::rpc::error::Error as RPCError;
+use crate::prelude::*;
 use derive_more::{Display, From};
-use serde_json::Error as SerdeError;
+use json::de::Error as SerdeError;
+#[cfg(feature = "std")]
 use std::io::Error as IoError;
 
 /// Web3 `Result` type.
@@ -37,8 +38,10 @@ pub enum Error {
     Transport(TransportError),
     /// rpc error
     #[display(fmt = "RPC error: {:?}", _0)]
-    Rpc(RPCError),
+    #[from(ignore)]
+    Rpc(String),
     /// io error
+    #[cfg(feature = "std")]
     #[display(fmt = "IO error: {}", _0)]
     Io(IoError),
     /// recovery error
@@ -49,12 +52,13 @@ pub enum Error {
     Internal,
 }
 
+#[cfg(feature = "std")]
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         use self::Error::*;
         match *self {
             Unreachable | Decoder(_) | InvalidResponse(_) | Transport { .. } | Internal => None,
-            Rpc(ref e) => Some(e),
+            Rpc(_) => None,
             Io(ref e) => Some(e),
             Recovery(ref e) => Some(e),
         }
@@ -76,6 +80,7 @@ impl Clone for Error {
             InvalidResponse(s) => InvalidResponse(s.clone()),
             Transport(s) => Transport(s.clone()),
             Rpc(e) => Rpc(e.clone()),
+            #[cfg(feature = "std")]
             Io(e) => Io(IoError::from(e.kind())),
             Recovery(e) => Recovery(e.clone()),
             Internal => Internal,

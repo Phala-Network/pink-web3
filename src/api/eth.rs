@@ -1,17 +1,29 @@
 //! `Eth` namespace
 
+use crate::prelude::*;
+use crate::types::SyncState;
 use crate::{
     api::Namespace,
     helpers::{self, CallFuture},
     types::{
         Address, Block, BlockHeader, BlockId, BlockNumber, Bytes, CallRequest, FeeHistory, Filter, Index, Log, Proof,
-        SyncState, Transaction, TransactionId, TransactionReceipt, TransactionRequest, Work, H256, H520, H64, U256,
-        U64,
+        Transaction, TransactionId, TransactionReceipt, TransactionRequest, Work, H256, H520, H64, U256, U64,
     },
     Transport,
 };
 
 /// `Eth` namespace
+///
+/// # Example
+/// ```rust
+/// fn get_gas_price() {
+///     use pink_web3::api::{Eth, Namespace};
+///     use pink_web3::transports::pink_http::PinkHttp;
+///     let phttp = PinkHttp::new("http://localhost:3333");
+///     let eth = Eth::new(phttp);
+///     let result = eth.gas_price().resolve();
+///     assert!(result.is_ok());
+/// }
 #[derive(Debug, Clone)]
 pub struct Eth<T> {
     transport: T,
@@ -44,7 +56,8 @@ impl<T: Transport> Eth<T> {
     /// Call a constant method of contract without changing the state of the blockchain.
     pub fn call(&self, req: CallRequest, block: Option<BlockId>) -> CallFuture<Bytes, T::Out> {
         let req = helpers::serialize(&req);
-        let block = helpers::serialize(&block.unwrap_or_else(|| BlockNumber::Latest.into()));
+        let block = block.unwrap_or_else(|| BlockNumber::Latest.into());
+        let block = helpers::serialize(&block);
 
         CallFuture::new(self.transport.execute("eth_call", vec![req, block]))
     }
@@ -76,8 +89,8 @@ impl<T: Transport> Eth<T> {
     pub fn estimate_gas(&self, req: CallRequest, block: Option<BlockNumber>) -> CallFuture<U256, T::Out> {
         let req = helpers::serialize(&req);
 
-        let args = match block {
-            Some(block) => vec![req, helpers::serialize(&block)],
+        let args = match block.as_ref() {
+            Some(block) => vec![req, helpers::serialize(block)],
             None => vec![req],
         };
 
@@ -110,7 +123,8 @@ impl<T: Transport> Eth<T> {
     /// Get balance of given address
     pub fn balance(&self, address: Address, block: Option<BlockNumber>) -> CallFuture<U256, T::Out> {
         let address = helpers::serialize(&address);
-        let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
+        let block = block.unwrap_or(BlockNumber::Latest);
+        let block = helpers::serialize(&block);
 
         CallFuture::new(self.transport.execute("eth_getBalance", vec![address, block]))
     }
@@ -177,7 +191,8 @@ impl<T: Transport> Eth<T> {
     /// Get code under given address
     pub fn code(&self, address: Address, block: Option<BlockNumber>) -> CallFuture<Bytes, T::Out> {
         let address = helpers::serialize(&address);
-        let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
+        let block = block.unwrap_or(BlockNumber::Latest);
+        let block = helpers::serialize(&block);
 
         CallFuture::new(self.transport.execute("eth_getCode", vec![address, block]))
     }
@@ -203,7 +218,8 @@ impl<T: Transport> Eth<T> {
     pub fn storage(&self, address: Address, idx: U256, block: Option<BlockNumber>) -> CallFuture<H256, T::Out> {
         let address = helpers::serialize(&address);
         let idx = helpers::serialize(&idx);
-        let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
+        let block = block.unwrap_or(BlockNumber::Latest);
+        let block = helpers::serialize(&block);
 
         CallFuture::new(self.transport.execute("eth_getStorageAt", vec![address, idx, block]))
     }
@@ -211,7 +227,8 @@ impl<T: Transport> Eth<T> {
     /// Get nonce
     pub fn transaction_count(&self, address: Address, block: Option<BlockNumber>) -> CallFuture<U256, T::Out> {
         let address = helpers::serialize(&address);
-        let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
+        let block = block.unwrap_or(BlockNumber::Latest);
+        let block = helpers::serialize(&block);
 
         CallFuture::new(self.transport.execute("eth_getTransactionCount", vec![address, block]))
     }
@@ -376,7 +393,8 @@ impl<T: Transport> Eth<T> {
     ) -> CallFuture<Option<Proof>, T::Out> {
         let add = helpers::serialize(&address);
         let ks = helpers::serialize(&keys);
-        let blk = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
+        let block = block.unwrap_or(BlockNumber::Latest);
+        let blk = helpers::serialize(&block);
         CallFuture::new(self.transport.execute("eth_getProof", vec![add, ks, blk]))
     }
 }
@@ -394,7 +412,6 @@ mod tests {
         },
     };
     use hex_literal::hex;
-    use serde_json::json;
 
     // taken from RPC docs.
     const EXAMPLE_BLOCK: &str = r#"{
@@ -875,7 +892,7 @@ mod tests {
         max_fee_per_gas: None, max_priority_fee_per_gas: None,
       }
       =>
-      "eth_sendTransaction", vec![r#"{"from":"0x0000000000000000000000000000000000000123","gasPrice":"0x1","to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#];
+      "eth_sendTransaction", vec![r#"{"from":"0x0000000000000000000000000000000000000123","to":"0x0000000000000000000000000000000000000123","gasPrice":"0x1","value":"0x1"}"#];
       Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => H256::from_low_u64_be(0x123)
     );
 
@@ -902,7 +919,7 @@ mod tests {
 
     rpc_test! (
       Eth:syncing:syncing => "eth_syncing";
-      json!({"startingBlock": "0x384","currentBlock": "0x386","highestBlock": "0x454"}) => SyncState::Syncing(SyncInfo { starting_block: 0x384.into(), current_block: 0x386.into(), highest_block: 0x454.into()})
+      serde_json::json!({"startingBlock": "0x384","currentBlock": "0x386","highestBlock": "0x454"}) => SyncState::Syncing(SyncInfo { starting_block: 0x384.into(), current_block: 0x386.into(), highest_block: 0x454.into()})
     );
 
     rpc_test! {

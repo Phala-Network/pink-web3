@@ -7,7 +7,7 @@ use crate::{
     Transport,
 };
 use futures::{Future, StreamExt};
-use std::time::Duration;
+use core::time::Duration;
 
 /// Checks whether an event has been confirmed.
 pub trait ConfirmationCheck {
@@ -197,7 +197,7 @@ mod tests {
             futures::executor::block_on(future)
         };
 
-        transport.assert_request("eth_sendTransaction", &[r#"{"from":"0x0000000000000000000000000000000000000123","gasPrice":"0x1","to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#.into()]);
+        transport.assert_request("eth_sendTransaction", &[r#"{"from":"0x0000000000000000000000000000000000000123","to":"0x0000000000000000000000000000000000000123","gasPrice":"0x1","value":"0x1"}"#.into()]);
         transport.assert_request("eth_newBlockFilter", &[]);
         transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
         transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);

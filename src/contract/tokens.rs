@@ -1,5 +1,5 @@
 //! Contract Functions Output types.
-
+use crate::prelude::*;
 use crate::{
     contract::error::Error,
     types::{Address, Bytes, BytesArray, H256, U128, U256},
@@ -211,7 +211,7 @@ macro_rules! eth_uint_tokenizable {
         impl Tokenizable for $uint {
             fn from_token(token: Token) -> Result<Self, Error> {
                 match token {
-                    Token::Int(data) | Token::Uint(data) => Ok(::std::convert::TryInto::try_into(data).unwrap()),
+                    Token::Int(data) | Token::Uint(data) => Ok(::core::convert::TryInto::try_into(data).unwrap()),
                     other => Err(Error::InvalidOutputType(format!("Expected `{}`, got {:?}", $name, other)).into()),
                 }
             }

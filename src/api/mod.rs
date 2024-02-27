@@ -3,13 +3,12 @@
 mod accounts;
 mod eth;
 mod eth_filter;
-mod eth_subscribe;
 mod net;
 mod parity;
 mod parity_accounts;
 mod parity_set;
 mod personal;
-mod traces;
+// mod traces;
 mod txpool;
 mod web3;
 
@@ -17,13 +16,12 @@ pub use self::{
     accounts::Accounts,
     eth::Eth,
     eth_filter::{BaseFilter, EthFilter},
-    eth_subscribe::{EthSubscribe, SubscriptionId, SubscriptionStream},
     net::Net,
     parity::Parity,
     parity_accounts::ParityAccounts,
     parity_set::ParitySet,
     personal::Personal,
-    traces::Traces,
+    // traces::Traces,
     txpool::Txpool,
     web3::Web3 as Web3Api,
 };
@@ -31,10 +29,10 @@ pub use self::{
 use crate::{
     confirm, error,
     types::{Bytes, TransactionReceipt, TransactionRequest, U64},
-    DuplexTransport, Transport,
+    Transport,
 };
 use futures::Future;
-use std::time::Duration;
+use core::time::Duration;
 
 /// Common API for all namespaces
 pub trait Namespace<T: Transport>: Clone {
@@ -112,10 +110,10 @@ impl<T: Transport> Web3<T> {
         self.api()
     }
 
-    /// Access methods from `trace` namespace
-    pub fn trace(&self) -> traces::Traces<T> {
-        self.api()
-    }
+    // /// Access methods from `trace` namespace
+    // pub fn trace(&self) -> traces::Traces<T> {
+    //     self.api()
+    // }
 
     /// Access methods from `txpool` namespace
     pub fn txpool(&self) -> txpool::Txpool<T> {
@@ -154,12 +152,5 @@ impl<T: Transport> Web3<T> {
         confirmations: usize,
     ) -> error::Result<TransactionReceipt> {
         confirm::send_raw_transaction_with_confirmation(self.transport.clone(), tx, poll_interval, confirmations).await
-    }
-}
-
-impl<T: DuplexTransport> Web3<T> {
-    /// Access subscribe methods from `eth` namespace
-    pub fn eth_subscribe(&self) -> eth_subscribe::EthSubscribe<T> {
-        self.api()
     }
 }

@@ -1,5 +1,5 @@
 //! Contract deployment utilities
-
+use crate::prelude::*;
 use crate::{
     api::{Eth, Namespace},
     confirm,
@@ -10,8 +10,9 @@ use crate::{
 };
 #[cfg(feature = "signing")]
 use crate::{signing::Key, types::TransactionParameters};
+use alloc::collections::BTreeMap;
+use core::time;
 use futures::{Future, TryFutureExt};
-use std::{collections::HashMap, time};
 
 pub use crate::contract::error::deploy::Error;
 
@@ -23,7 +24,7 @@ pub struct Builder<T: Transport> {
     pub(crate) options: Options,
     pub(crate) confirmations: usize,
     pub(crate) poll_interval: time::Duration,
-    pub(crate) linker: HashMap<String, Address>,
+    pub(crate) linker: BTreeMap<String, Address>,
 }
 
 impl<T: Transport> Builder<T> {
@@ -235,8 +236,8 @@ mod tests {
         transports::test::TestTransport,
         types::{Address, U256},
     };
+    use alloc::collections::BTreeMap;
     use serde_json::Value;
-    use std::collections::HashMap;
 
     #[test]
     fn should_deploy_a_contract() {
@@ -359,7 +360,7 @@ mod tests {
         transport.assert_no_more_requests();
         {
             let builder = Contract::deploy_from_truffle(api::Eth::new(&transport), &main_abi, {
-                let mut linker = HashMap::new();
+                let mut linker = BTreeMap::new();
                 linker.insert("MyLibrary", lib_address);
                 linker
             })

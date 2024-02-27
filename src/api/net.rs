@@ -1,5 +1,5 @@
 //! `Net` namespace
-
+use crate::prelude::*;
 use crate::{api::Namespace, helpers::CallFuture, types::U256, Transport};
 
 /// `Net` namespace

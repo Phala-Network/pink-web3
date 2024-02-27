@@ -1,6 +1,5 @@
 use crate::types::{H256, U256};
-use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
-use serde_json::{self, Value};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Miner's work package
 #[derive(Debug, PartialEq, Eq)]
@@ -20,16 +19,8 @@ impl<'a> Deserialize<'a> for Work {
     where
         D: Deserializer<'a>,
     {
-        let v: Value = Deserialize::deserialize(deserializer)?;
-
-        let (pow_hash, seed_hash, target, number) = serde_json::from_value::<(H256, H256, H256, u64)>(v.clone())
-            .map(|(pow_hash, seed_hash, target, number)| (pow_hash, seed_hash, target, Some(number)))
-            .or_else(|_| {
-                serde_json::from_value::<(H256, H256, H256)>(v)
-                    .map(|(pow_hash, seed_hash, target)| (pow_hash, seed_hash, target, None))
-            })
-            .map_err(|e| D::Error::custom(format!("Cannot deserialize Work: {:?}", e)))?;
-
+        let (pow_hash, seed_hash, target, number): (H256, H256, H256, Option<u64>) =
+            Deserialize::deserialize(deserializer)?;
         Ok(Work {
             pow_hash,
             seed_hash,

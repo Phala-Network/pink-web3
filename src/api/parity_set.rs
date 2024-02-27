@@ -1,3 +1,4 @@
+use crate::prelude::*;
 use crate::{
     api::Namespace,
     helpers::{self, CallFuture},
@@ -159,12 +160,12 @@ mod tests {
                 connected: 1,
                 max: 1,
                 peers: vec![ParityPeerInfo {
-                    id: Some(String::from("f900000000000000000000000000000000000000000000000000000000lalalaleelooooooooo")),
-                    name: String::from(""),
+                    id: Some("f900000000000000000000000000000000000000000000000000000000lalalaleelooooooooo".into()),
+                    name: "".into(),
                     caps: vec![],
                     network: PeerNetworkInfo {
-                        remote_address: String::from("Handshake"),
-                        local_address: String::from("127.0.0.1:43128"),
+                        remote_address: "Handshake".into(),
+                        local_address: "127.0.0.1:43128".into(),
                     },
                     protocols: PeerProtocolsInfo {
                         eth: None,

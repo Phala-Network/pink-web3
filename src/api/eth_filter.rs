@@ -1,28 +1,26 @@
 //! `Eth` namespace, filters.
-
+use crate::helpers::CallFuture;
+use crate::prelude::*;
 use crate::{
     api::Namespace,
-    error, helpers, rpc,
+    error, helpers,
     types::{Filter, Log, H256},
     Transport,
 };
 use futures::{stream, Stream, TryStreamExt};
-use futures_timer::Delay;
+// use futures_timer::Delay;
+use core::{fmt, marker::PhantomData, time::Duration};
 use serde::de::DeserializeOwned;
-use std::{fmt, marker::PhantomData, time::Duration, vec};
 
 fn filter_stream<T: Transport, I: DeserializeOwned>(
     base: BaseFilter<T, I>,
     poll_interval: Duration,
 ) -> impl Stream<Item = error::Result<I>> {
-    let id = helpers::serialize(&base.id);
-    stream::unfold((base, id), move |state| async move {
-        let (base, id) = state;
-        Delay::new(poll_interval).await;
-        let response = base.transport.execute("eth_getFilterChanges", vec![id.clone()]).await;
-        let items: error::Result<Option<Vec<I>>> = response.and_then(helpers::decode);
+    stream::unfold(base, move |base| async move {
+        // Delay::new(poll_interval).await;
+        let items = base.poll().await;
         let items = items.map(Option::unwrap_or_default);
-        Some((items, (base, id)))
+        Some((items, base))
     })
     // map I to Result<I> even though it is always Ok so that try_flatten works
     .map_ok(|items| stream::iter(items.into_iter().map(Ok)))
@@ -91,7 +89,6 @@ impl<T: Transport, I: 'static> fmt::Debug for BaseFilter<T, I> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("BaseFilter")
             .field("id", &self.id)
-            .field("transport", &self.transport)
             .field("item", &std::any::TypeId::of::<I>())
             .finish()
     }
@@ -114,8 +111,7 @@ impl<T: Transport, I> BaseFilter<T, I> {
         Self: Sized,
     {
         let id = helpers::serialize(&self.id);
-        let response = self.transport.execute("eth_uninstallFilter", vec![id]).await?;
-        helpers::decode(response)
+        Ok(CallFuture::new(self.transport.execute("eth_uninstallFilter", vec![id])).await?)
     }
 
     /// Borrows the transport.
@@ -129,8 +125,7 @@ impl<T: Transport, I: DeserializeOwned> BaseFilter<T, I> {
     /// Will return logs that happened after previous poll.
     pub async fn poll(&self) -> error::Result<Option<Vec<I>>> {
         let id = helpers::serialize(&self.id);
-        let response = self.transport.execute("eth_getFilterChanges", vec![id]).await?;
-        helpers::decode(response)
+        Ok(CallFuture::new(self.transport.execute("eth_getFilterChanges", vec![id])).await?)
     }
 
     /// Returns the stream of items which automatically polls the server
@@ -143,18 +138,16 @@ impl<T: Transport> BaseFilter<T, Log> {
     /// Returns future with all logs matching given filter
     pub async fn logs(&self) -> error::Result<Vec<Log>> {
         let id = helpers::serialize(&self.id);
-        let response = self.transport.execute("eth_getFilterLogs", vec![id]).await?;
-        helpers::decode(response)
+        Ok(CallFuture::new(self.transport.execute("eth_getFilterLogs", vec![id])).await?)
     }
 }
 
 /// Should be used to create new filter future
-async fn create_filter<T: Transport, F: FilterInterface>(
+async fn create_filter<'a, T: Transport, F: FilterInterface>(
     transport: T,
-    arg: Vec<rpc::Value>,
+    arg: Vec<crate::Value<'a>>,
 ) -> error::Result<BaseFilter<T, F::Output>> {
-    let response = transport.execute(F::constructor(), arg).await?;
-    let id = helpers::decode(response)?;
+    let id = CallFuture::new(transport.execute(F::constructor(), arg)).await?;
     Ok(BaseFilter {
         id,
         transport,

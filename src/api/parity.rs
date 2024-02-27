@@ -1,7 +1,7 @@
+use crate::prelude::*;
 use crate::{
     api::Namespace,
     helpers::{self, CallFuture},
-    rpc::Value,
     types::{Bytes, CallRequest, ParityPendingTransactionFilter, Transaction},
     Transport,
 };
@@ -40,12 +40,11 @@ impl<T: Transport> Parity<T> {
         limit: Option<usize>,
         filter: Option<ParityPendingTransactionFilter>,
     ) -> CallFuture<Vec<Transaction>, T::Out> {
-        let limit = limit.map(Value::from);
+        let limit = helpers::serialize(&limit);
         let filter = filter.as_ref().map(helpers::serialize);
         let params = match (limit, filter) {
-            (l, Some(f)) => vec![l.unwrap_or(Value::Null), f],
-            (Some(l), None) => vec![l],
-            _ => vec![],
+            (l, Some(f)) => vec![l, f],
+            (l, None) => vec![l],
         };
 
         CallFuture::new(self.transport.execute("parity_pendingTransactions", params))
@@ -127,7 +126,7 @@ mod tests {
                 max_priority_fee_per_gas: None,
             }
         ] => "parity_call", vec![
-            r#"[{"to":"0x0000000000000000000000000000000000000123","value":"0x1"},{"data":"0x0493","from":"0x0000000000000000000000000000000000000321","to":"0x0000000000000000000000000000000000000123"},{"data":"0x0723","to":"0x0000000000000000000000000000000000000765","value":"0x5"}]"#
+            r#"[{"to":"0x0000000000000000000000000000000000000123","value":"0x1"},{"from":"0x0000000000000000000000000000000000000321","to":"0x0000000000000000000000000000000000000123","data":"0x0493"},{"to":"0x0000000000000000000000000000000000000765","value":"0x5","data":"0x0723"}]"#
         ];
         Value::Array(vec![Value::String("0x010203".into()), Value::String("0x7198ab".into()), Value::String("0xde763f".into())]) => vec![hex!("010203").into(), hex!("7198ab").into(), hex!("de763f").into()]
     );

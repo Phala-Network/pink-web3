@@ -1,8 +1,6 @@
+use crate::prelude::*;
 use crate::types::{SignedData, SignedTransaction, H256};
-use std::{
-    error::Error,
-    fmt::{Display, Formatter, Result as FmtResult},
-};
+use core::fmt::{Display, Formatter, Result as FmtResult};
 
 /// Data for recovering the public address of signed data.
 ///
@@ -155,8 +153,6 @@ impl Display for ParseSignatureError {
         write!(f, "error parsing raw signature: wrong number of bytes, expected 65")
     }
 }
-
-impl Error for ParseSignatureError {}
 
 #[cfg(test)]
 mod tests {

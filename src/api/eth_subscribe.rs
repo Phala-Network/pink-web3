@@ -11,7 +11,7 @@ use futures::{
     Stream,
 };
 use pin_project::{pin_project, pinned_drop};
-use std::{marker::PhantomData, pin::Pin};
+use core::{marker::PhantomData, pin::Pin};
 
 /// `Eth` namespace, subscriptions
 #[derive(Debug, Clone)]
@@ -75,8 +75,7 @@ impl<T: DuplexTransport, I> SubscriptionStream<T, I> {
     pub async fn unsubscribe(self) -> error::Result<bool> {
         let &SubscriptionId(ref id) = &self.id;
         let id = helpers::serialize(&id);
-        let response = self.transport.execute("eth_unsubscribe", vec![id]).await?;
-        helpers::decode(response)
+        Ok(CallFuture::new(self.transport.execute("eth_unsubscribe", vec![id])).await?)
     }
 }
 
@@ -108,8 +107,7 @@ impl<T: DuplexTransport> EthSubscribe<T> {
     /// Create a new heads subscription
     pub async fn subscribe_new_heads(&self) -> error::Result<SubscriptionStream<T, BlockHeader>> {
         let subscription = helpers::serialize(&&"newHeads");
-        let response = self.transport.execute("eth_subscribe", vec![subscription]).await?;
-        let id: String = helpers::decode(response)?;
+        let id = CallFuture::new(self.transport.execute("eth_subscribe", vec![subscription]).await?;
         SubscriptionStream::new(self.transport.clone(), SubscriptionId(id))
     }
 
@@ -128,16 +126,14 @@ impl<T: DuplexTransport> EthSubscribe<T> {
     /// Create a pending transactions subscription
     pub async fn subscribe_new_pending_transactions(&self) -> error::Result<SubscriptionStream<T, H256>> {
         let subscription = helpers::serialize(&&"newPendingTransactions");
-        let response = self.transport.execute("eth_subscribe", vec![subscription]).await?;
-        let id: String = helpers::decode(response)?;
+        let id = CallFuture::new(self.transport.execute("eth_subscribe", vec![subscription])).await?;
         SubscriptionStream::new(self.transport.clone(), SubscriptionId(id))
     }
 
     /// Create a sync status subscription
     pub async fn subscribe_syncing(&self) -> error::Result<SubscriptionStream<T, SyncState>> {
         let subscription = helpers::serialize(&&"syncing");
-        let response = self.transport.execute("eth_subscribe", vec![subscription]).await?;
-        let id: String = helpers::decode(response)?;
+        let id = CallFuture::new(self.transport.execute("eth_subscribe", vec![subscription])).await?;
         SubscriptionStream::new(self.transport.clone(), SubscriptionId(id))
     }
 }
