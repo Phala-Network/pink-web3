@@ -3,7 +3,8 @@ use crate::prelude::*;
 
 use crate::{
     api::Namespace,
-    helpers::{self, CallFuture},
+    error::Result,
+    helpers,
     types::{Bytes, H256},
     Transport,
 };
@@ -29,14 +30,14 @@ impl<T: Transport> Namespace<T> for Web3<T> {
 
 impl<T: Transport> Web3<T> {
     /// Returns client version
-    pub fn client_version(&self) -> CallFuture<String, T::Out> {
-        CallFuture::new(self.transport.execute("web3_clientVersion", vec![]))
+    pub async fn client_version(&self) -> Result<String> {
+        self.transport.execute("web3_clientVersion", vec![]).await
     }
 
     /// Returns sha3 of the given data
-    pub fn sha3(&self, bytes: Bytes) -> CallFuture<H256, T::Out> {
+    pub async fn sha3(&self, bytes: Bytes) -> Result<H256> {
         let bytes = helpers::serialize(&bytes);
-        CallFuture::new(self.transport.execute("web3_sha3", vec![bytes]))
+        self.transport.execute("web3_sha3", vec![bytes]).await
     }
 }
 

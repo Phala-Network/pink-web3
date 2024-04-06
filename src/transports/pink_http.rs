@@ -9,10 +9,12 @@ use core::{
 };
 use serde::de::DeserializeOwned;
 
-use crate::helpers::CallFuture;
 use crate::prelude::*;
 use crate::{error::TransportError, helpers::json_rpc};
 use crate::{Error, Transport};
+
+// Deprecated
+pub use crate::expect_ready as resolve_ready;
 
 /// A Transport using pink http API
 ///
@@ -21,9 +23,10 @@ use crate::{Error, Transport};
 /// fn get_web3_sha3() {
 ///     use pink_web3::api::{Web3, Namespace};
 ///     use pink_web3::transports::pink_http::PinkHttp;
+///     use pink_web3::ExpectReady;
 ///     let phttp = PinkHttp::new("http://localhost:3333");
 ///     let web3 = Web3::new(phttp);
-///     let result = web3.web3().sha3(b"123".to_vec().into()).resolve();
+///     let result = web3.web3().sha3(b"123".to_vec().into()).expect_ready();
 ///     assert!(result.is_ok());
 /// }
 /// ```
@@ -49,12 +52,10 @@ impl Future for Response {
     }
 }
 
-type RpcResult = Result<Vec<u8>, Error>;
-
 impl Transport for PinkHttp {
-    type Out = Ready<RpcResult>;
+    type Out<T> = Ready<Result<T, Error>>;
 
-    fn execute(&self, method: &'static str, params: Vec<crate::Value>) -> Self::Out {
+    fn execute<T: DeserializeOwned>(&self, method: &'static str, params: Vec<crate::Value>) -> Self::Out<T> {
         let request = json_rpc::encode_request(method, params);
         let body = request.as_bytes();
         let headers: Vec<(String, String)> = vec![("Content-Type".into(), "application/json".into())];
@@ -62,28 +63,6 @@ impl Transport for PinkHttp {
         if response.status_code / 100 != 2 {
             return ready(Err(Error::Transport(TransportError::Code(response.status_code))));
         }
-        ready(Ok(response.body))
-    }
-}
-
-impl<T: DeserializeOwned> CallFuture<T, Ready<RpcResult>> {
-    /// Blocking resolves the output
-    pub fn resolve(self) -> <Self as Future>::Output {
-        resolve_ready(self)
-    }
-}
-
-/// Retreive the output of a Future driven by PinkHttp
-///
-/// When using PinkHttp as the transport, the Futures returned by any API should be always
-/// ready immediate because of pink's blocking HTTP api.
-pub fn resolve_ready<F: Future>(fut: F) -> <F as Future>::Output {
-    let waker = futures::task::noop_waker_ref();
-    let mut cx = task::Context::from_waker(waker);
-    use task::Poll::*;
-    pin_mut!(fut);
-    match fut.poll(&mut cx) {
-        Ready(v) => v,
-        Pending => panic!("Failed to resolve a ready future"),
+        ready(json_rpc::decode_response(&response.body))
     }
 }

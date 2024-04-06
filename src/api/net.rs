@@ -1,6 +1,6 @@
 //! `Net` namespace
 use crate::prelude::*;
-use crate::{api::Namespace, helpers::CallFuture, types::U256, Transport};
+use crate::{api::Namespace, error::Result, types::U256, Transport};
 
 /// `Net` namespace
 #[derive(Debug, Clone)]
@@ -23,18 +23,18 @@ impl<T: Transport> Namespace<T> for Net<T> {
 
 impl<T: Transport> Net<T> {
     /// Returns the network id.
-    pub fn version(&self) -> CallFuture<String, T::Out> {
-        CallFuture::new(self.transport.execute("net_version", vec![]))
+    pub async fn version(&self) -> Result<String> {
+        self.transport.execute("net_version", vec![]).await
     }
 
     /// Returns number of peers connected to node.
-    pub fn peer_count(&self) -> CallFuture<U256, T::Out> {
-        CallFuture::new(self.transport.execute("net_peerCount", vec![]))
+    pub async fn peer_count(&self) -> Result<U256> {
+        self.transport.execute("net_peerCount", vec![]).await
     }
 
     /// Whether the node is listening for network connections
-    pub fn is_listening(&self) -> CallFuture<bool, T::Out> {
-        CallFuture::new(self.transport.execute("net_listening", vec![]))
+    pub async fn is_listening(&self) -> Result<bool> {
+        self.transport.execute("net_listening", vec![]).await
     }
 }
 

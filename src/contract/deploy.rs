@@ -12,7 +12,7 @@ use crate::{
 use crate::{signing::Key, types::TransactionParameters};
 use alloc::collections::BTreeMap;
 use core::time;
-use futures::{Future, TryFutureExt};
+use futures::Future;
 
 pub use crate::contract::error::deploy::Error;
 
@@ -82,17 +82,12 @@ impl<T: Transport> Builder<T> {
         let poll_interval = self.poll_interval;
         let confirmations = self.confirmations;
 
-        self.do_execute(code, params, from, move |tx| {
-            crate::api::Personal::new(transport.clone())
+        self.do_execute(code, params, from, move |tx| async move {
+            let signed_tx = crate::api::Personal::new(transport.clone())
                 .sign_transaction(tx, password)
-                .and_then(move |signed_tx| {
-                    confirm::send_raw_transaction_with_confirmation(
-                        transport,
-                        signed_tx.raw,
-                        poll_interval,
-                        confirmations,
-                    )
-                })
+                .await?;
+            confirm::send_raw_transaction_with_confirmation(transport, signed_tx.raw, poll_interval, confirmations)
+                .await
         })
         .await
     }

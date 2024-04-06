@@ -2,12 +2,6 @@
 
 use crate::error;
 use crate::prelude::*;
-use core::{marker::PhantomData, pin::Pin};
-use futures::{
-    task::{Context, Poll},
-    Future,
-};
-use pin_project::pin_project;
 
 /// Takes any type which is deserializable from rpc::Value and such a value and
 /// yields the deserialized value
@@ -18,39 +12,6 @@ pub fn decode<T: serde::de::DeserializeOwned>(value: Vec<u8>) -> error::Result<T
 /// Serialize a type. Panics if the type is returns error during serialization.
 pub fn serialize<T: erased_serde::Serialize>(t: &T) -> &dyn erased_serde::Serialize {
     t as _
-}
-
-/// Calls decode on the result of the wrapped future.
-#[pin_project]
-#[derive(Debug)]
-pub struct CallFuture<T, F> {
-    #[pin]
-    inner: F,
-    _marker: PhantomData<T>,
-}
-
-impl<T, F> CallFuture<T, F> {
-    /// Create a new CallFuture wrapping the inner future.
-    pub fn new(inner: F) -> Self {
-        CallFuture {
-            inner,
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<T, F> Future for CallFuture<T, F>
-where
-    T: serde::de::DeserializeOwned,
-    F: Future<Output = error::Result<Vec<u8>>>,
-{
-    type Output = error::Result<T>;
-
-    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
-        let this = self.project();
-        let x = ready!(this.inner.poll(ctx));
-        Poll::Ready(x.and_then(|data| json_rpc::decode_response(&data)))
-    }
 }
 
 pub(crate) mod json_rpc {
@@ -91,8 +52,8 @@ pub(crate) mod json_rpc {
     }
 
     pub fn decode_response<'de, T: Deserialize<'de>>(response: &'de [u8]) -> Result<T, Error> {
-        let response: Response<T> = json::from_slice(response)
-            .or(Err(Error::Decoder("Failed to decode the rpc response".into())))?;
+        let response: Response<T> =
+            json::from_slice(response).or(Err(Error::Decoder("Failed to decode the rpc response".into())))?;
         if let Some(result) = response.result {
             return Ok(result);
         }
@@ -120,17 +81,11 @@ pub mod tests {
         // given
         let mut transport = $crate::transports::test::TestTransport::default();
         transport.set_response($returned);
-        let result = {
-          let eth = $namespace::new(&transport);
-
-          // when
-          eth.$name($($param.into(), )+)
-        };
-
+        let eth = $namespace::new(&transport);
+        let result = futures::executor::block_on(eth.$name($($param.into(), )+));
         // then
         transport.assert_request($method, &$results.into_iter().map(Into::into).collect::<Vec<_>>());
         transport.assert_no_more_requests();
-        let result = futures::executor::block_on(result);
         assert_eq!(result, Ok($expected.into()));
       }
     };
@@ -155,17 +110,11 @@ pub mod tests {
         // given
         let mut transport = $crate::transports::test::TestTransport::default();
         transport.set_response($returned);
-        let result = {
-          let eth = $namespace::new(&transport);
-
-          // when
-          eth.$name()
-        };
-
+        let eth = $namespace::new(&transport);
+        let result = futures::executor::block_on(eth.$name());
         // then
         transport.assert_request($method, &[]);
         transport.assert_no_more_requests();
-        let result = futures::executor::block_on(result);
         assert_eq!(result, Ok($expected.into()));
       }
     };

@@ -2,7 +2,7 @@
 
 use crate::{
     api::Namespace,
-    helpers::CallFuture,
+    error::Result,
     types::{TxpoolContentInfo, TxpoolInspectInfo, TxpoolStatus},
     Transport,
 };
@@ -28,18 +28,18 @@ impl<T: Transport> Namespace<T> for Txpool<T> {
 
 impl<T: Transport> Txpool<T> {
     /// returns txpool content info
-    pub fn content(&self) -> CallFuture<TxpoolContentInfo, T::Out> {
-        CallFuture::new(self.transport.execute("txpool_content", vec![]))
+    pub async fn content(&self) -> Result<TxpoolContentInfo> {
+        self.transport.execute("txpool_content", vec![]).await
     }
 
     /// returns txpool inspect info
-    pub fn inspect(&self) -> CallFuture<TxpoolInspectInfo, T::Out> {
-        CallFuture::new(self.transport.execute("txpool_inspect", vec![]))
+    pub async fn inspect(&self) -> Result<TxpoolInspectInfo> {
+        self.transport.execute("txpool_inspect", vec![]).await
     }
 
     /// returns txpool status
-    pub fn status(&self) -> CallFuture<TxpoolStatus, T::Out> {
-        CallFuture::new(self.transport.execute("txpool_status", vec![]))
+    pub async fn status(&self) -> Result<TxpoolStatus> {
+        self.transport.execute("txpool_status", vec![]).await
     }
 }
 
